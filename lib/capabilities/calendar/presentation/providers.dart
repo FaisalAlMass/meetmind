@@ -1,0 +1,212 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:meetmind/capabilities/calendar/data/sources.dart';
+import 'package:meetmind/capabilities/calendar/domain/calendar_domain.dart';
+import 'package:meetmind/core/assistant/contracts.dart';
+import 'package:meetmind/core/models.dart';
+import 'package:meetmind/shared/localization/app_strings.dart';
+import 'package:meetmind/shared/services/notification_service.dart';
+import 'package:meetmind/shared/services/notification_settings.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+// --- Composition (dependency injection via Riverpod) ---
+
+/// Overridden in main() with the app's registry.
+final capabilityRegistryProvider = Provider<CapabilityRegistry>(
+  (ref) => throw UnimplementedError('Override capabilityRegistryProvider in main()'),
+);
+
+/// Overridden in main() with the initialized SharedPreferences.
+final sharedPreferencesProvider = Provider<SharedPreferences>(
+  (ref) => throw UnimplementedError('Override sharedPreferencesProvider in main()'),
+);
+
+final prayerTimeProvider =
+    Provider<PrayerTimeProvider>((ref) => AdhanPrayerTimeProvider());
+
+final eventRepositoryProvider = Provider<EventRepository>(
+  (ref) => LocalEventRepository(ref.read(sharedPreferencesProvider)),
+);
+
+final eventParserProvider = Provider<EventParser>(
+  (ref) => NaturalLanguageEventParser(ref.read(prayerTimeProvider)),
+);
+
+final conflictDetectorProvider =
+    Provider<ConflictDetector>((ref) => ConflictDetector());
+
+final captureUseCaseProvider = Provider<CaptureEventUseCase>(
+  (ref) => CaptureEventUseCase(
+    parser: ref.read(eventParserProvider),
+    repository: ref.read(eventRepositoryProvider),
+    detector: ref.read(conflictDetectorProvider),
+  ),
+);
+
+// --- Agenda state ---
+
+final agendaProvider =
+    AsyncNotifierProvider<AgendaNotifier, List<CalendarEvent>>(
+  AgendaNotifier.new,
+);
+
+class AgendaNotifier extends AsyncNotifier<List<CalendarEvent>> {
+  @override
+  Future<List<CalendarEvent>> build() =>
+      ref.read(eventRepositoryProvider).all();
+
+  Future<void> add(CalendarEvent event) async {
+    final repository = ref.read(eventRepositoryProvider);
+    await repository.add(event);
+
+    final settings = ref.read(notificationSettingsProvider);
+    if (settings.enabled) {
+      final s = ref.read(appStringsProvider);
+      await NotificationService.instance.scheduleForEvent(
+        id: event.id.hashCode,
+        title: event.title,
+        start: event.start,
+        minutesBefore: settings.minutesBefore,
+        reminderTitle: s.notifReminderTitle,
+        channelName: s.notifChannelName,
+        channelDescription: s.notifChannelDesc,
+        body: s.notifBody,
+      );
+    }
+
+    state = AsyncData(await repository.all());
+  }
+
+  Future<void> edit(CalendarEvent event) async {
+    final repository = ref.read(eventRepositoryProvider);
+    await repository.remove(event.id);
+    await repository.add(event);
+
+    await NotificationService.instance.cancel(event.id.hashCode);
+    final settings = ref.read(notificationSettingsProvider);
+    if (settings.enabled) {
+      final s = ref.read(appStringsProvider);
+      await NotificationService.instance.scheduleForEvent(
+        id: event.id.hashCode,
+        title: event.title,
+        start: event.start,
+        minutesBefore: settings.minutesBefore,
+        reminderTitle: s.notifReminderTitle,
+        channelName: s.notifChannelName,
+        channelDescription: s.notifChannelDesc,
+        body: s.notifBody,
+      );
+    }
+
+    state = AsyncData(await repository.all());
+  }
+
+  Future<void> remove(String id) async {
+    final repository = ref.read(eventRepositoryProvider);
+    await repository.remove(id);
+
+    await NotificationService.instance.cancel(id.hashCode);
+
+    state = AsyncData(await repository.all());
+  }
+
+  int get conflictCount {
+    final events = state.value ?? const [];
+    var count = 0;
+    for (var i = 0; i < events.length; i++) {
+      for (var j = i + 1; j < events.length; j++) {
+        if (events[i].start.isBefore(events[j].end) &&
+            events[j].start.isBefore(events[i].end)) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+}
+
+// --- Capture state ---
+
+class CaptureState {
+  const CaptureState({
+    this.input = '',
+    this.processing = false,
+    this.pending,
+    this.notUnderstood = false,
+  });
+
+  final String input;
+  final bool processing;
+  final CaptureResult? pending;
+  final bool notUnderstood;
+
+  CaptureState copyWith({
+    String? input,
+    bool? processing,
+    CaptureResult? pending,
+    bool clearPending = false,
+    bool? notUnderstood,
+  }) {
+    return CaptureState(
+      input: input ?? this.input,
+      processing: processing ?? this.processing,
+      pending: clearPending ? null : (pending ?? this.pending),
+      notUnderstood: notUnderstood ?? this.notUnderstood,
+    );
+  }
+}
+
+final captureControllerProvider =
+    NotifierProvider<CaptureController, CaptureState>(CaptureController.new);
+
+class CaptureController extends Notifier<CaptureState> {
+  @override
+  CaptureState build() => const CaptureState();
+
+  void setInput(String value) =>
+      state = state.copyWith(input: value, notUnderstood: false);
+
+  Future<void> submit() async {
+    final text = state.input.trim();
+    if (text.isEmpty) return;
+
+    state = state.copyWith(processing: true, notUnderstood: false);
+    final result = await ref.read(captureUseCaseProvider).capture(text);
+
+    if (result == null) {
+      state = state.copyWith(
+        processing: false,
+        notUnderstood: true,
+        clearPending: true,
+      );
+    } else {
+      state = state.copyWith(processing: false, pending: result);
+    }
+  }
+
+  void pickSlot(DateTime start) {
+    final current = state.pending;
+    if (current == null) return;
+
+    final duration = current.draft.end.difference(current.draft.start);
+    final flags = {...current.draft.lowConfidence}
+      ..removeAll({EventField.time, EventField.date});
+    final draft = current.draft.copyWith(
+      start: start,
+      end: start.add(duration),
+      lowConfidence: flags,
+    );
+
+    state = state.copyWith(
+      pending: CaptureResult(draft: draft, conflicts: const [], suggestions: const []),
+    );
+  }
+
+  Future<void> confirm() async {
+    final draft = state.pending?.draft;
+    if (draft == null) return;
+    await ref.read(agendaProvider.notifier).add(draft.toEvent());
+    state = const CaptureState();
+  }
+
+  void discard() => state = state.copyWith(clearPending: true);
+}
