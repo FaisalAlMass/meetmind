@@ -45,6 +45,8 @@ dependencies:
   adhan: ^2.0.0+1
   hijri: ^3.0.1
   speech_to_text: ^7.4.0
+  image_picker: ^1.2.3
+  flutter_tesseract_ocr: ^0.4.31
 
 dev_dependencies:
   flutter_test:
@@ -67,6 +69,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/tessdata_config.json
+    - assets/tessdata/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

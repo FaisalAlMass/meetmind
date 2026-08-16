@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:meetmind/capabilities/calendar/presentation/calendar_screen.dart';
 import 'package:meetmind/capabilities/calendar/presentation/event_detail_screen.dart';
@@ -10,6 +11,7 @@ import 'package:meetmind/core/models.dart';
 import 'package:meetmind/shared/localization/app_strings.dart';
 import 'package:meetmind/shared/localization/hijri_date.dart';
 import 'package:meetmind/shared/localization/locale_provider.dart';
+import 'package:meetmind/shared/services/ocr_service.dart';
 import 'package:meetmind/shared/services/speech_service.dart';
 import 'package:meetmind/shared/services/user_service.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -70,6 +72,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
   final _input = TextEditingController();
   final _focus = FocusNode();
   bool _listening = false;
+  bool _scanning = false;
 
   @override
   void dispose() {
@@ -131,6 +134,63 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
       return;
     }
     setState(() => _listening = true);
+  }
+
+  Future<void> _scanDocument(AppStrings s) async {
+    if (!OcrService.instance.isSupported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.scanUnsupported)),
+      );
+      return;
+    }
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: Text(s.scanTakePhoto),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: Text(s.scanChooseGallery),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
+    final picked = await ImagePicker().pickImage(source: source);
+    if (picked == null || !mounted) return;
+
+    setState(() => _scanning = true);
+    String text;
+    try {
+      text = await OcrService.instance.extractText(picked.path);
+    } catch (_) {
+      text = '';
+    }
+    if (!mounted) return;
+    setState(() => _scanning = false);
+
+    final cleaned = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (cleaned.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.scanNoTextFound)),
+      );
+      return;
+    }
+
+    _input.text = cleaned;
+    _input.selection = TextSelection.collapsed(offset: _input.text.length);
+    ref.read(captureControllerProvider.notifier).setInput(cleaned);
+    _submit();
   }
 
   String _fmtTime(DateTime d, String lang) => DateFormat.jm(lang).format(d);
@@ -242,10 +302,28 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                 onSubmitted: (_) => _submit(),
                 decoration: InputDecoration(
                   border: InputBorder.none,
-                  hintText: _listening ? s.listeningHint : s.captureHint,
+                  hintText: _listening
+                      ? s.listeningHint
+                      : (_scanning ? s.scanProcessing : s.captureHint),
                 ),
               ),
             ),
+            if (_scanning)
+              const Padding(
+                padding: EdgeInsets.all(8),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else
+              IconButton(
+                tooltip: s.scanInputTooltip,
+                onPressed: () => _scanDocument(s),
+                icon: Icon(Icons.document_scanner_outlined,
+                    color: cs.onSurfaceVariant),
+              ),
             IconButton(
               tooltip: s.voiceInputTooltip,
               onPressed: () => _toggleListening(s, lang),

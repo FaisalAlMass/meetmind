@@ -30,6 +30,10 @@
 	<string>يحتاج MeetMind الميكروفون عشان تقدر تضيف مواعيدك بصوتك.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>يستخدم MeetMind التعرف على الكلام لتحويل صوتك إلى موعد.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>يحتاج MeetMind الكاميرا عشان تصوّر مستند أو دعوة وتحوّلها لموعد.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>يحتاج MeetMind الوصول لصورك عشان تختار صورة مستند وتحوّلها لموعد.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
