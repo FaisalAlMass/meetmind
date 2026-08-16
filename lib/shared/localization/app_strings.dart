@@ -41,8 +41,9 @@ class AppStrings {
         participantsLabel = 'المشاركون',
         locationLabel = 'المكان',
         typeLabel = 'النوع',
-        searchHint = 'ابحث في مواعيدك…',
-        searchEmptyPrompt = 'ابحث في مواعيدك بالاسم أو المشارك',
+        searchHint = 'ابحث بالاسم أو التاريخ (بكرة، الأحد، 5 صفر)…',
+        searchEmptyPrompt =
+            'ابحث بالاسم، المشارك، الموقع — أو تاريخ زي "بكرة" أو "5 صفر"',
         welcomeTitle = 'أهلًا بك في MeetMind',
         welcomeSubtitle = 'مساعدك الذكي للمواعيد. وش نناديك؟',
         yourNameLabel = 'اسمك',
@@ -122,8 +123,10 @@ class AppStrings {
         participantsLabel = 'Participants',
         locationLabel = 'Location',
         typeLabel = 'Type',
-        searchHint = 'Search your events…',
-        searchEmptyPrompt = 'Search your events by name or participant',
+        searchHint = 'Search by name or date (tomorrow, Sunday, 5 Safar)…',
+        searchEmptyPrompt =
+            'Search by name, participant, location — or a date like '
+            '"tomorrow" or "5 Safar"',
         welcomeTitle = 'Welcome to MeetMind',
         welcomeSubtitle = 'Your smart scheduling assistant. What should we call you?',
         yourNameLabel = 'Your name',

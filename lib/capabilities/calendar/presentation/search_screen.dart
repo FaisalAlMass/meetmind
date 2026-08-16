@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:meetmind/capabilities/calendar/domain/date_reference_parser.dart';
 import 'package:meetmind/capabilities/calendar/presentation/event_detail_screen.dart';
 import 'package:meetmind/capabilities/calendar/presentation/providers.dart';
 import 'package:meetmind/core/models.dart';
@@ -25,6 +26,31 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     super.dispose();
   }
 
+  /// لو النص فيه مرجع تاريخ مفهوم (نسبي أو مطلق، هجري أو ميلادي) — نعرض
+  /// كل مواعيد ذاك اليوم. غير كذا نبحث بالعنوان/المشاركين/الموقع كنص عادي.
+  List<CalendarEvent> _search(List<CalendarEvent> events, String query) {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return const [];
+
+    final today = DateTime.now();
+    final date = DateReferenceParser.tryParse(
+        trimmed, DateTime(today.year, today.month, today.day));
+    if (date != null) {
+      return events.where((e) =>
+          e.start.year == date.year &&
+          e.start.month == date.month &&
+          e.start.day == date.day).toList()
+        ..sort((a, b) => a.start.compareTo(b.start));
+    }
+
+    final low = trimmed.toLowerCase();
+    return events.where((e) =>
+        e.title.toLowerCase().contains(low) ||
+        e.participants.any((p) => p.toLowerCase().contains(low)) ||
+        (e.location?.toLowerCase().contains(low) ?? false)).toList()
+      ..sort((a, b) => a.start.compareTo(b.start));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -34,15 +60,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final s = ref.watch(appStringsProvider);
     final lang = ref.watch(localeProvider).languageCode;
 
-    final results = _query.trim().isEmpty
-        ? <CalendarEvent>[]
-        : (allEvents
-            .where((e) =>
-                e.title.toLowerCase().contains(_query.toLowerCase()) ||
-                e.participants
-                    .any((p) => p.toLowerCase().contains(_query.toLowerCase())))
-            .toList()
-          ..sort((a, b) => a.start.compareTo(b.start)));
+    final results = _search(allEvents, _query);
 
     return Scaffold(
       appBar: AppBar(title: Text(s.navSearch)),
