@@ -8,7 +8,7 @@ class AppStrings {
 
   AppStrings._ar()
       : languageCode = 'ar',
-        appName = 'MeetMind',
+        appName = 'موعد',
         navToday = 'اليوم',
         navCalendar = 'التقويم',
         navSearch = 'بحث',
@@ -44,13 +44,17 @@ class AppStrings {
         searchHint = 'ابحث بالاسم أو التاريخ (بكرة، الأحد، 5 صفر)…',
         searchEmptyPrompt =
             'ابحث بالاسم، المشارك، الموقع — أو تاريخ زي "بكرة" أو "5 صفر"',
-        welcomeTitle = 'أهلًا بك في MeetMind',
+        welcomeTitle = 'أهلًا بك في موعد',
         welcomeSubtitle = 'مساعدك الذكي للمواعيد. وش نناديك؟',
         yourNameLabel = 'اسمك',
         yourNameHint = 'مثال: فيصل',
         letsStart = 'يلا نبدأ',
         editNameTooltip = 'تعديل الاسم',
-        meetmindUser = 'مستخدم MeetMind',
+        meetmindUser = 'مستخدم موعد',
+        logoutLabel = 'تسجيل خروج',
+        logoutConfirmTitle = 'تسجيل الخروج',
+        logoutConfirmBody =
+            'مواعيدك المحفوظة تبقى بأمان — بس لازم تدخل اسمك من جديد.',
         settingsSection = 'الإعدادات',
         darkMode = 'الوضع الداكن',
         onLabel = 'مُفعّل',
@@ -89,7 +93,7 @@ class AppStrings {
 
   AppStrings._en()
       : languageCode = 'en',
-        appName = 'MeetMind',
+        appName = "Maw'id",
         navToday = 'Today',
         navCalendar = 'Calendar',
         navSearch = 'Search',
@@ -127,13 +131,18 @@ class AppStrings {
         searchEmptyPrompt =
             'Search by name, participant, location — or a date like '
             '"tomorrow" or "5 Safar"',
-        welcomeTitle = 'Welcome to MeetMind',
+        welcomeTitle = "Welcome to Maw'id",
         welcomeSubtitle = 'Your smart scheduling assistant. What should we call you?',
         yourNameLabel = 'Your name',
         yourNameHint = 'e.g. John',
         letsStart = "Let's start",
         editNameTooltip = 'Edit name',
-        meetmindUser = 'MeetMind user',
+        meetmindUser = "Maw'id user",
+        logoutLabel = 'Log out',
+        logoutConfirmTitle = 'Log out',
+        logoutConfirmBody =
+            "Your saved events stay safe — you'll just need to enter your "
+            "name again.",
         settingsSection = 'Settings',
         darkMode = 'Dark mode',
         onLabel = 'On',
@@ -213,6 +222,9 @@ class AppStrings {
   final String letsStart;
   final String editNameTooltip;
   final String meetmindUser;
+  final String logoutLabel;
+  final String logoutConfirmTitle;
+  final String logoutConfirmBody;
   final String settingsSection;
   final String darkMode;
   final String onLabel;

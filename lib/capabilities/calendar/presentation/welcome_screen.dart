@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meetmind/shared/localization/app_strings.dart';
 import 'package:meetmind/shared/services/user_service.dart';
+import 'package:meetmind/shared/theme/mawid_mark.dart';
 
 class WelcomeScreen extends ConsumerStatefulWidget {
   const WelcomeScreen({super.key});
@@ -53,8 +54,14 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                   color: cs.primaryContainer,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Icon(Icons.auto_awesome,
-                    size: 40, color: cs.onPrimaryContainer),
+                child: Center(
+                  child: MawidMark(
+                    size: 40,
+                    letterColor: cs.onPrimaryContainer,
+                    ringColor: cs.onPrimaryContainer.withValues(alpha: 0.4),
+                    dotColor: cs.tertiary,
+                  ),
+                ),
               ),
               const SizedBox(height: 24),
               Text(s.welcomeTitle,

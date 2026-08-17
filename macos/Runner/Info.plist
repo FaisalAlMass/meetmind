@@ -27,9 +27,9 @@
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>يحتاج MeetMind الميكروفون عشان تقدر تضيف مواعيدك بصوتك.</string>
+	<string>يحتاج موعد الميكروفون عشان تقدر تضيف مواعيدك بصوتك.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>يستخدم MeetMind التعرف على الكلام لتحويل صوتك إلى موعد.</string>
+	<string>يستخدم موعد التعرف على الكلام لتحويل صوتك إلى موعد.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

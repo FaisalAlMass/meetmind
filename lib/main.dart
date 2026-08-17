@@ -7,6 +7,7 @@ import 'package:meetmind/capabilities/calendar/presentation/providers.dart';
 import 'package:meetmind/capabilities/calendar/presentation/today_screen.dart';
 import 'package:meetmind/capabilities/calendar/presentation/welcome_screen.dart';
 import 'package:meetmind/core/assistant/contracts.dart';
+import 'package:meetmind/shared/localization/app_strings.dart';
 import 'package:meetmind/shared/localization/locale_provider.dart';
 import 'package:meetmind/shared/services/notification_service.dart';
 import 'package:meetmind/shared/services/user_service.dart';
@@ -48,9 +49,10 @@ class MeetMindApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final userName = ref.watch(userNameProvider);
     final locale = ref.watch(localeProvider);
+    final s = ref.watch(appStringsProvider);
 
     return MaterialApp(
-      title: 'MeetMind',
+      title: s.appName,
       debugShowCheckedModeBanner: false,
       theme: MeetMindTheme.light(),
       darkTheme: MeetMindTheme.dark(),

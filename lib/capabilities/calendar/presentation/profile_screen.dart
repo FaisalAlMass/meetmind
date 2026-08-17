@@ -121,7 +121,7 @@ class ProfileScreen extends ConsumerWidget {
               children: [
                 ListTile(
                   leading: const Icon(Icons.info_outline),
-                  title: const Text('MeetMind'),
+                  title: Text(s.appName),
                   subtitle: Text(s.appTagline),
                 ),
                 const Divider(height: 1),
@@ -134,6 +134,15 @@ class ProfileScreen extends ConsumerWidget {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.logout, color: cs.error),
+              title: Text(s.logoutLabel, style: TextStyle(color: cs.error)),
+              onTap: () => _logout(context, ref, s),
+            ),
+          ),
           const SizedBox(height: 24),
 
           Center(
@@ -144,6 +153,33 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _logout(BuildContext context, WidgetRef ref, AppStrings s) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.logoutConfirmTitle),
+        content: Text(s.logoutConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(s.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(s.logoutLabel),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(userNameProvider.notifier).setName('');
+    }
   }
 
   Future<void> _editName(

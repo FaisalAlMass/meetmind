@@ -148,15 +148,23 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MeetMind'),
+        title: Text(s.appName),
         actions: [
           Padding(
             padding: const EdgeInsetsDirectional.only(end: 12),
-            child: CircleAvatar(
-              radius: 15,
-              backgroundColor: cs.primaryContainer,
-              child: Text(initial,
-                  style: TextStyle(color: cs.onPrimaryContainer)),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                );
+              },
+              child: CircleAvatar(
+                radius: 15,
+                backgroundColor: cs.primaryContainer,
+                child: Text(initial,
+                    style: TextStyle(color: cs.onPrimaryContainer)),
+              ),
             ),
           ),
         ],
@@ -291,7 +299,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
             const SizedBox(height: 10),
             _field(theme, Icons.title, draft.title, low(EventField.title)),
             const SizedBox(height: 8),
-            _dateField(theme, draft.start, s, lang,
+            _dateField(theme, draft.start, draft.end, s, lang,
                 low(EventField.date) || low(EventField.time)),
             if (draft.participants.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -355,8 +363,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     );
   }
 
-  Widget _dateField(ThemeData theme, DateTime start, AppStrings s, String lang,
-      bool uncertain) {
+  Widget _dateField(ThemeData theme, DateTime start, DateTime end,
+      AppStrings s, String lang, bool uncertain) {
     final cs = theme.colorScheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,7 +376,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                  '${hijriDateString(start, lang, withWeekday: false)} · ${DateFormat.jm(lang).format(start)}'),
+                  '${hijriDateString(start, lang, withWeekday: false)} · '
+                  '${DateFormat.jm(lang).format(start)} — '
+                  '${DateFormat.jm(lang).format(end)}'),
               Text(DateFormat(s.weekdayDatePattern, lang).format(start),
                   style: theme.textTheme.labelSmall
                       ?.copyWith(color: cs.onSurfaceVariant)),
