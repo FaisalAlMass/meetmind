@@ -71,20 +71,6 @@
 		CF3DFEBDF4C4053602F88848 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		2FAE576330323E530078324F /* tessdata */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
-			path = tessdata;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
-
 /* Begin PBXFrameworksBuildPhase section */
 		97C146EB1CF9000F007C117D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
@@ -144,7 +130,6 @@
 				331C8082294A63A400263BE5 /* RunnerTests */,
 				A665A0CC83D5A623707546E3 /* Pods */,
 				1DF2C47CB1D217C1DC6BD6A0 /* Frameworks */,
-				2FAE576330323E530078324F /* tessdata */,
 			);
 			sourceTree = "<group>";
 		};
@@ -183,6 +168,7 @@
 				CF3DFEBDF4C4053602F88848 /* Pods-RunnerTests.release.xcconfig */,
 				8C7983AC4D5ECA6AF4D70EF5 /* Pods-RunnerTests.profile.xcconfig */,
 			);
+			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -224,9 +210,6 @@
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				2FAE576330323E530078324F /* tessdata */,
 			);
 			name = Runner;
 			packageProductDependencies = (

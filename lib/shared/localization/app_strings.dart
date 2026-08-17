@@ -76,12 +76,6 @@ class AppStrings {
         voiceInputTooltip = 'تحدث الآن',
         listeningHint = 'أستمع… تكلم الآن',
         voiceUnavailable = 'التعرف الصوتي غير متاح على هذا الجهاز',
-        scanInputTooltip = 'مسح مستند',
-        scanTakePhoto = 'التقط صورة',
-        scanChooseGallery = 'اختر من المعرض',
-        scanProcessing = 'جاري قراءة المستند…',
-        scanNoTextFound = 'ما قدرت ألقى نص بالصورة',
-        scanUnsupported = 'المسح الضوئي غير مدعوم على هذا الجهاز',
         greeting = ((name) => 'صباح الخير، $name'),
         eventsCount = ((n) => '$n مواعيد'),
         conflictsWith = ((n) => 'يتعارض مع $n موعد'),
@@ -165,12 +159,6 @@ class AppStrings {
         voiceInputTooltip = 'Speak now',
         listeningHint = 'Listening… speak now',
         voiceUnavailable = "Voice input isn't available on this device",
-        scanInputTooltip = 'Scan document',
-        scanTakePhoto = 'Take photo',
-        scanChooseGallery = 'Choose from gallery',
-        scanProcessing = 'Reading document…',
-        scanNoTextFound = "Couldn't find any text in the photo",
-        scanUnsupported = "Document scanning isn't available on this device",
         greeting = ((name) => 'Good morning, $name'),
         eventsCount = ((n) => '$n events'),
         conflictsWith = ((n) => 'Conflicts with $n events'),
@@ -250,12 +238,6 @@ class AppStrings {
   final String voiceInputTooltip;
   final String listeningHint;
   final String voiceUnavailable;
-  final String scanInputTooltip;
-  final String scanTakePhoto;
-  final String scanChooseGallery;
-  final String scanProcessing;
-  final String scanNoTextFound;
-  final String scanUnsupported;
 
   final String Function(String name) greeting;
   final String Function(int n) eventsCount;
