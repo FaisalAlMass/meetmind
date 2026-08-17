@@ -167,8 +167,9 @@ class NaturalLanguageEventParser implements EventParser {
 
   // كلمات تقطع عبارة "مع/with" — تمنع التقاطها كأسماء مشاركين.
   static const List<String> _clauseBoundaryWords = [
-    'at', 'on', 'after', 'tomorrow', 'today', 'tonight',
+    'at', 'on', 'after', 'for', 'tomorrow', 'today', 'tonight',
     'غدا', 'بكرة', 'اليوم', 'الليلة', 'يوم', 'بعد', 'الساعة', 'الساعه',
+    'لمدة', 'مدة',
   ];
 
   // كلمات شائعة بعد with/مع مالها علاقة بأسماء أشخاص فعلية.
@@ -189,7 +190,7 @@ class NaturalLanguageEventParser implements EventParser {
     final participants = _participants(raw);
     final day = _day(low, base, flags);
     final start = _start(low, day, flags);
-    final end = start.add(_defaultDuration);
+    final end = start.add(_duration(low) ?? _defaultDuration);
     final title = _title(raw, participants, flags);
 
     return CaptureDraft(
@@ -243,6 +244,49 @@ class NaturalLanguageEventParser implements EventParser {
 
     flags.add(EventField.date);
     return today;
+  }
+
+  /// يفتش عن مدة صريحة بعد كلمة دالّة ("for"/"لمدة"/"مدة") — لازم الكلمة
+  /// الدالّة عشان ما نلخبط "الساعة 3" (وقت) مع "لمدة 3 ساعات" (مدة).
+  Duration? _duration(String low) {
+    const marker = r'(?:for|لمدة|مدة)\s+';
+
+    if (RegExp('$marker(?:نص|نصف)\\s*ساعة').hasMatch(low) ||
+        RegExp('${marker}half\\s*(?:an?\\s*)?hour').hasMatch(low)) {
+      return const Duration(minutes: 30);
+    }
+    if (RegExp('$markerربع\\s*ساعة').hasMatch(low) ||
+        RegExp('${marker}quarter\\s*(?:of an?\\s*)?hour').hasMatch(low)) {
+      return const Duration(minutes: 15);
+    }
+    if (RegExp('$markerساعتين').hasMatch(low)) {
+      return const Duration(hours: 2);
+    }
+
+    // ملاحظة: بدون \b — غير موثوق مع الحروف العربية بـ Dart RegExp (يعتمد
+    // على \w اللي يغطي بس a-z0-9_)، وبالذات بنهاية النص.
+    final hours =
+        RegExp('$marker(\\d+(?:\\.\\d+)?)\\s*(?:ساعة|ساعات|hours?|hrs?)(?!\\w)')
+            .firstMatch(low);
+    if (hours != null) {
+      final n = double.tryParse(hours.group(1)!);
+      if (n != null) return Duration(minutes: (n * 60).round());
+    }
+
+    final minutes =
+        RegExp('$marker(\\d+)\\s*(?:دقيقة|دقايق|minutes?|mins?)(?!\\w)')
+            .firstMatch(low);
+    if (minutes != null) {
+      final n = int.tryParse(minutes.group(1)!);
+      if (n != null) return Duration(minutes: n);
+    }
+
+    if (RegExp('$markerساعة(?!\\w)').hasMatch(low) ||
+        RegExp('$marker(?:an?|one)\\s*hour(?!\\w)').hasMatch(low)) {
+      return const Duration(hours: 1);
+    }
+
+    return null;
   }
 
   DateTime _start(String low, DateTime day, Set<EventField> flags) {
