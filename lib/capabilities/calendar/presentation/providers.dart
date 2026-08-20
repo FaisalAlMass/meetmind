@@ -54,14 +54,15 @@ class AgendaNotifier extends AsyncNotifier<List<CalendarEvent>> {
   Future<List<CalendarEvent>> build() =>
       ref.read(eventRepositoryProvider).all();
 
-  Future<void> add(CalendarEvent event) async {
+  Future<ReminderScheduleResult?> add(CalendarEvent event) async {
     final repository = ref.read(eventRepositoryProvider);
     await repository.add(event);
 
+    ReminderScheduleResult? result;
     final settings = ref.read(notificationSettingsProvider);
     if (settings.enabled) {
       final s = ref.read(appStringsProvider);
-      await NotificationService.instance.scheduleForEvent(
+      result = await NotificationService.instance.scheduleForEvent(
         id: event.id.hashCode,
         title: event.title,
         start: event.start,
@@ -74,18 +75,20 @@ class AgendaNotifier extends AsyncNotifier<List<CalendarEvent>> {
     }
 
     state = AsyncData(await repository.all());
+    return result;
   }
 
-  Future<void> edit(CalendarEvent event) async {
+  Future<ReminderScheduleResult?> edit(CalendarEvent event) async {
     final repository = ref.read(eventRepositoryProvider);
     await repository.remove(event.id);
     await repository.add(event);
 
     await NotificationService.instance.cancel(event.id.hashCode);
+    ReminderScheduleResult? result;
     final settings = ref.read(notificationSettingsProvider);
     if (settings.enabled) {
       final s = ref.read(appStringsProvider);
-      await NotificationService.instance.scheduleForEvent(
+      result = await NotificationService.instance.scheduleForEvent(
         id: event.id.hashCode,
         title: event.title,
         start: event.start,
@@ -98,6 +101,7 @@ class AgendaNotifier extends AsyncNotifier<List<CalendarEvent>> {
     }
 
     state = AsyncData(await repository.all());
+    return result;
   }
 
   Future<void> remove(String id) async {
@@ -201,11 +205,12 @@ class CaptureController extends Notifier<CaptureState> {
     );
   }
 
-  Future<void> confirm() async {
+  Future<ReminderScheduleResult?> confirm() async {
     final draft = state.pending?.draft;
-    if (draft == null) return;
-    await ref.read(agendaProvider.notifier).add(draft.toEvent());
+    if (draft == null) return null;
+    final result = await ref.read(agendaProvider.notifier).add(draft.toEvent());
     state = const CaptureState();
+    return result;
   }
 
   void discard() => state = state.copyWith(clearPending: true);

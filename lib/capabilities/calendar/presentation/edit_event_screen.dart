@@ -6,6 +6,7 @@ import 'package:meetmind/core/models.dart';
 import 'package:meetmind/shared/localization/app_strings.dart';
 import 'package:meetmind/shared/localization/hijri_date.dart';
 import 'package:meetmind/shared/localization/locale_provider.dart';
+import 'package:meetmind/shared/services/notification_service.dart';
 
 class EditEventScreen extends ConsumerStatefulWidget {
   const EditEventScreen({super.key, required this.event});
@@ -78,13 +79,19 @@ class _EditEventScreenState extends ConsumerState<EditEventScreen> {
       isFocus: widget.event.isFocus,
     );
 
-    await ref.read(agendaProvider.notifier).edit(updated);
+    final scheduleResult = await ref.read(agendaProvider.notifier).edit(updated);
 
     if (mounted) {
       Navigator.of(context).pop();
       Navigator.of(context).pop();
+      final warning = switch (scheduleResult) {
+        ReminderScheduleResult.reminderAlreadyPassed => s.reminderTimePassed,
+        ReminderScheduleResult.permissionDenied =>
+          s.notifPermissionDeniedSnack,
+        _ => null,
+      };
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(s.eventUpdated)),
+        SnackBar(content: Text(warning ?? s.eventUpdated)),
       );
     }
   }

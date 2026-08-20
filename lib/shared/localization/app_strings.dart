@@ -74,6 +74,19 @@ class AppStrings {
         notifReminderTitle = 'تذكير بموعد',
         notifChannelName = 'تذكيرات المواعيد',
         notifChannelDesc = 'تنبيهات قبل مواعيدك',
+        notifPermissionGrantedTitle = 'الإشعارات مفعّلة',
+        notifPermissionGrantedBody =
+            'بتوصلك التذكيرات حتى لو التطبيق مقفول أو الجوال بالخلفية.',
+        notifPermissionDeniedTitle = 'إذن الإشعارات معطّل',
+        notifPermissionDeniedBody =
+            'فعّله من إعدادات النظام عشان توصلك تذكيرات مواعيدك.',
+        openSystemSettings = 'افتح إعدادات النظام',
+        tryToneNow = 'جرّب النغمة الآن',
+        testNotificationSent = 'تم إرسال تنبيه تجريبي',
+        reminderTimePassed =
+            'وقت التذكير قريب جدًا من الآن — ما قدرنا نجدوله لهذا الموعد.',
+        notifPermissionDeniedSnack =
+            'إذن الإشعارات مرفوض — فعّله من إعدادات النظام عشان توصلك التذكيرات.',
         listSeparator = '، ',
         weekdayDatePattern = 'EEEE، d MMMM',
         weekdayDateYearPattern = 'EEEE، d MMMM y',
@@ -162,6 +175,23 @@ class AppStrings {
         notifReminderTitle = 'Event reminder',
         notifChannelName = 'Event reminders',
         notifChannelDesc = 'Reminders before your events',
+        notifPermissionGrantedTitle = 'Notifications are on',
+        notifPermissionGrantedBody =
+            "You'll get reminders even if the app is closed or the phone is "
+            'locked.',
+        notifPermissionDeniedTitle = 'Notifications are off',
+        notifPermissionDeniedBody =
+            'Turn them on in system settings to get reminders before your '
+            'events.',
+        openSystemSettings = 'Open system settings',
+        tryToneNow = 'Try the tone now',
+        testNotificationSent = 'Test notification sent',
+        reminderTimePassed =
+            "The reminder time is too close to now — couldn't schedule it "
+            'for this event.',
+        notifPermissionDeniedSnack =
+            'Notification permission denied — enable it in system settings '
+            'to get reminders.',
         listSeparator = ', ',
         weekdayDatePattern = 'EEEE, d MMMM',
         weekdayDateYearPattern = 'EEEE, d MMMM y',
@@ -244,6 +274,15 @@ class AppStrings {
   final String notifReminderTitle;
   final String notifChannelName;
   final String notifChannelDesc;
+  final String notifPermissionGrantedTitle;
+  final String notifPermissionGrantedBody;
+  final String notifPermissionDeniedTitle;
+  final String notifPermissionDeniedBody;
+  final String openSystemSettings;
+  final String tryToneNow;
+  final String testNotificationSent;
+  final String reminderTimePassed;
+  final String notifPermissionDeniedSnack;
   final String listSeparator;
   final String weekdayDatePattern;
   final String weekdayDateYearPattern;
