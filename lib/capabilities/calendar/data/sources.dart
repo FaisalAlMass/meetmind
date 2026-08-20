@@ -179,13 +179,37 @@ class NaturalLanguageEventParser implements EventParser {
     'everyone', 'everybody', 'anyone', 'anybody', 'team', 'و',
   };
 
+  // لوحة المفاتيح العربية بالعادة تكتب أرقام هندية (٠-٩) مو غربية (0-9)،
+  // و\d بالـ RegExp ما يتعرف إلا على الغربية — فنحوّلها قبل أي مطابقة.
+  static const String _easternArabicDigits = '٠١٢٣٤٥٦٧٨٩';
+  static const String _persianDigits = '۰۱۲۳۴۵۶۷۸۹';
+
+  static String _normalizeDigits(String input) {
+    final buffer = StringBuffer();
+    for (final rune in input.runes) {
+      final ch = String.fromCharCode(rune);
+      final eastern = _easternArabicDigits.indexOf(ch);
+      if (eastern != -1) {
+        buffer.write(eastern);
+        continue;
+      }
+      final persian = _persianDigits.indexOf(ch);
+      if (persian != -1) {
+        buffer.write(persian);
+        continue;
+      }
+      buffer.write(ch);
+    }
+    return buffer.toString();
+  }
+
   @override
   Future<CaptureDraft?> parse(String text, {DateTime? now}) async {
     final base = now ?? DateTime.now();
     final raw = text.trim();
     if (raw.isEmpty) return null;
 
-    final low = raw.toLowerCase();
+    final low = _normalizeDigits(raw.toLowerCase());
     final flags = <EventField>{};
 
     final participants = _participants(raw);
@@ -314,13 +338,59 @@ class NaturalLanguageEventParser implements EventParser {
     final prayer = _prayer(low);
     if (prayer != null) return prayerTimes.timeFor(prayer, day);
 
-    final clock = _clock(low);
+    final clock = _clock(low) ?? _wordClock(low);
     if (clock != null) {
       return DateTime(day.year, day.month, day.day, clock[0], clock[1]);
     }
 
     flags.add(EventField.time);
     return DateTime(day.year, day.month, day.day, 9, 0);
+  }
+
+  // "الساعة الثالثة مساء" — صيغة شائعة جدًا بالعربي (اسم الساعة بالحروف
+  // بدل الأرقام). مرتّبة الأطول أولًا حتى "الثانية عشرة" (12) ما تنقرأ
+  // غلط كـ"الثانية" (2).
+  static const Map<String, int> _arabicHourWords = {
+    'الحادية عشرة': 11, 'حادية عشرة': 11, 'إحدى عشرة': 11, 'احدى عشرة': 11,
+    'الثانية عشرة': 12, 'ثانية عشرة': 12, 'اثنتا عشرة': 12, 'اثنا عشر': 12,
+    'الواحدة': 1, 'واحدة': 1,
+    'الثانية': 2, 'ثانية': 2, 'اثنتين': 2,
+    'الثالثة': 3, 'ثالثة': 3, 'ثلاثة': 3,
+    'الرابعة': 4, 'رابعة': 4, 'اربعة': 4, 'أربعة': 4,
+    'الخامسة': 5, 'خامسة': 5, 'خمسة': 5,
+    'السادسة': 6, 'سادسة': 6, 'ستة': 6,
+    'السابعة': 7, 'سابعة': 7, 'سبعة': 7,
+    'الثامنة': 8, 'ثامنة': 8, 'ثمانية': 8,
+    'التاسعة': 9, 'تاسعة': 9, 'تسعة': 9,
+    'العاشرة': 10, 'عاشرة': 10, 'عشرة': 10,
+  };
+
+  static final List<String> _sortedArabicHourWords = _arabicHourWords.keys
+      .toList()
+    ..sort((a, b) => b.length.compareTo(a.length));
+
+  List<int>? _wordClock(String low) {
+    final pattern = _sortedArabicHourWords.map(RegExp.escape).join('|');
+    final match =
+        RegExp('(?:الساعة|الساعه)\\s+($pattern)').firstMatch(low);
+    if (match == null) return null;
+    var hour = _arabicHourWords[match.group(1)]!;
+
+    var minute = 0;
+    final rest = low.substring(match.end);
+    if (RegExp(r'^\s*(?:إلا|الا)\s*ربع').hasMatch(rest)) {
+      minute = 45;
+      hour = hour == 1 ? 12 : hour - 1;
+    } else if (RegExp(r'^\s*و\s*ربع').hasMatch(rest)) {
+      minute = 15;
+    } else if (RegExp(r'^\s*و\s*(?:النصف|نصف|النص|نص)').hasMatch(rest)) {
+      minute = 30;
+    }
+
+    final ampm = _arabicPeriod(low);
+    if (ampm == 'pm' && hour < 12) hour += 12;
+    if (ampm == 'am' && hour == 12) hour = 0;
+    return [hour, minute];
   }
 
   models.Prayer? _prayer(String low) {
@@ -343,9 +413,9 @@ class NaturalLanguageEventParser implements EventParser {
     return [hour, minute];
   }
 
-  /// يفهم "مساءً/مساء" و"صباحًا/صباح" كمعادل عربي لـ pm/am.
+  /// يفهم "مساءً/مساء"، "عصرًا"، و"بالليل/الليل" كـ pm، و"صباحًا/صباح" كـ am.
   String? _arabicPeriod(String low) {
-    if (RegExp(r'مساء').hasMatch(low)) return 'pm';
+    if (RegExp(r'مساء|عصرا|ليلا|الليل').hasMatch(low)) return 'pm';
     if (RegExp(r'صباح').hasMatch(low)) return 'am';
     return null;
   }
