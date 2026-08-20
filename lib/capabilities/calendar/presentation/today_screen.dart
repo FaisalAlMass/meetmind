@@ -10,6 +10,7 @@ import 'package:meetmind/core/models.dart';
 import 'package:meetmind/shared/localization/app_strings.dart';
 import 'package:meetmind/shared/localization/hijri_date.dart';
 import 'package:meetmind/shared/localization/locale_provider.dart';
+import 'package:meetmind/shared/services/notification_service.dart';
 import 'package:meetmind/shared/services/speech_service.dart';
 import 'package:meetmind/shared/services/user_service.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -88,26 +89,34 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
   Future<void> _toggleListening(AppStrings s, String lang) async {
     if (_listening) {
       await SpeechService.instance.stop();
-      setState(() => _listening = false);
       return;
+    }
+
+    // علم خاص بهالجلسة بالذات — يمنع أي رد متأخر (stray callback) يوصل
+    // بعد ما الجلسة خلصت من إنه يرجع يعبّي حقل الكتابة بنص قديم.
+    var sessionDone = false;
+    void finish() {
+      if (sessionDone) return;
+      sessionDone = true;
+      if (mounted) setState(() => _listening = false);
     }
 
     final started = await SpeechService.instance.listen(
       lang: lang,
       onResult: (text, isFinal) {
-        if (!mounted) return;
+        if (!mounted || sessionDone) return;
         _input.text = text;
         _input.selection =
             TextSelection.collapsed(offset: _input.text.length);
         ref.read(captureControllerProvider.notifier).setInput(text);
         if (isFinal) {
-          setState(() => _listening = false);
+          finish();
           if (text.trim().isNotEmpty) _submit();
         }
       },
       onError: (permanent) {
         if (!mounted) return;
-        setState(() => _listening = false);
+        finish();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(s.voiceUnavailable)),
         );
@@ -118,7 +127,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
         if (!mounted) return;
         if (status == stt.SpeechToText.notListeningStatus ||
             status == stt.SpeechToText.doneStatus) {
-          setState(() => _listening = false);
+          finish();
         }
       },
     );
@@ -338,8 +347,21 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                 Expanded(
                   child: FilledButton(
                     onPressed: () async {
-                      await notifier.confirm();
+                      final scheduleResult = await notifier.confirm();
                       _input.clear();
+                      if (!mounted) return;
+                      final warning = switch (scheduleResult) {
+                        ReminderScheduleResult.reminderAlreadyPassed =>
+                          s.reminderTimePassed,
+                        ReminderScheduleResult.permissionDenied =>
+                          s.notifPermissionDeniedSnack,
+                        _ => null,
+                      };
+                      if (warning != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(warning)),
+                        );
+                      }
                     },
                     child: Text(s.saveEvent),
                   ),

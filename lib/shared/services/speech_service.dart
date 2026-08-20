@@ -51,6 +51,10 @@ class SpeechService {
         partialResults: true,
         cancelOnError: true,
         localeId: localeId ?? lang,
+        // بدون pauseFor، بعض المنصات (خصوصًا iOS) تفضل بجلسة استماع
+        // مفتوحة للأبد ولا تعتبر الكلام "خلص" إلا لو المستخدم أوقفها يدويًا.
+        pauseFor: const Duration(seconds: 2),
+        listenFor: const Duration(seconds: 30),
       ),
     );
     return true;
