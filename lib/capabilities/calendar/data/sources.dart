@@ -165,11 +165,12 @@ class NaturalLanguageEventParser implements EventParser {
     'isha': models.Prayer.isha, 'العشاء': models.Prayer.isha,
   };
 
-  // كلمات تقطع عبارة "مع/with" — تمنع التقاطها كأسماء مشاركين.
+  // كلمات تقطع عبارة "مع/with" أو "في/in" — تمنع التقاطها كأسماء
+  // مشاركين أو جزء من اسم مكان.
   static const List<String> _clauseBoundaryWords = [
-    'at', 'on', 'after', 'for', 'tomorrow', 'today', 'tonight',
+    'at', 'on', 'after', 'for', 'in', 'tomorrow', 'today', 'tonight',
     'غدا', 'بكرة', 'اليوم', 'الليلة', 'يوم', 'بعد', 'الساعة', 'الساعه',
-    'لمدة', 'مدة',
+    'لمدة', 'مدة', 'في', 'مع',
   ];
 
   // كلمات شائعة بعد with/مع مالها علاقة بأسماء أشخاص فعلية.
@@ -188,6 +189,7 @@ class NaturalLanguageEventParser implements EventParser {
     final flags = <EventField>{};
 
     final participants = _participants(raw);
+    final location = _location(raw);
     final day = _day(low, base, flags);
     final start = _start(low, day, flags);
     final end = start.add(_duration(low) ?? _defaultDuration);
@@ -198,9 +200,28 @@ class NaturalLanguageEventParser implements EventParser {
       start: start,
       end: end,
       participants: participants,
+      location: location,
       sourceText: raw,
       lowConfidence: flags,
     );
+  }
+
+  /// يفتش عن مكان بعد "في"/"in" — نفس منطق استخراج المشاركين بالضبط
+  /// (يوقف عند أول كلمة تاريخ/وقت/مدة/مشارك).
+  String? _location(String raw) {
+    final boundary = {
+      ..._clauseBoundaryWords,
+      ..._weekdayNames.keys,
+      ..._prayerNames.keys,
+    }.map(RegExp.escape).join('|');
+
+    final match = RegExp(
+      '(?:في|in)\\s+(.+?)(?=\\s+(?:$boundary)(?:\\s|\$|[.,،])|[.,،]|\$)',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    if (match == null) return null;
+    final place = match.group(1)!.trim();
+    return place.isEmpty ? null : place;
   }
 
   List<String> _participants(String raw) {

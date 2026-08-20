@@ -306,6 +306,10 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
               _field(theme, Icons.group,
                   draft.participants.join(s.listSeparator), false),
             ],
+            if (draft.location != null) ...[
+              const SizedBox(height: 8),
+              _field(theme, Icons.location_on_outlined, draft.location!, false),
+            ],
             if (result.conflicts.isNotEmpty) ...[
               const Divider(height: 24),
               Row(
