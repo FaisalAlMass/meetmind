@@ -65,7 +65,7 @@ flutter_launcher_icons:
   macos:
     generate: true
     image_path: "assets/icon/mawid_icon.png"
-  adaptive_icon_background: "#534AB7"
+  adaptive_icon_background: "#00A651"
   adaptive_icon_foreground: "assets/icon/mawid_icon_foreground.png"
   remove_alpha_ios: true
 
@@ -90,6 +90,17 @@ flutter:
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
+
+  fonts:
+    - family: Tajawal
+      fonts:
+        - asset: assets/fonts/Tajawal-Regular.ttf
+        - asset: assets/fonts/Tajawal-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Tajawal-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Tajawal-ExtraBold.ttf
+          weight: 800
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a
