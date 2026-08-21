@@ -41,12 +41,16 @@ icon and every in-app string.
   the background — fully local (no server dependency). The Notifications
   screen surfaces the OS permission status directly (with a one-tap link
   to system settings if it's off) and a "try the tone now" test button.
+- **Cloud-synced events (Firebase)** — events are stored in Cloud
+  Firestore under an automatic, invisible anonymous account, so they
+  survive deleting and reinstalling the app on the same device (not just
+  a local cache). From Profile, a user can optionally link an email +
+  password to that account to make events recoverable from *any* device,
+  not just the one they were created on.
 - **Four-tab home** — Today (agenda + quick capture), Calendar (month
-  grid), Search, and Profile (name, language, theme, notification
-  settings), all backed by the same local store.
+  grid), Search, and Profile (name, language, theme, notifications, cloud
+  backup), all backed by the same cloud-synced store.
 - **Dark mode** and a **Material 3** interface.
-- **Fully offline** — all data is stored locally on-device; no backend or
-  account required.
 
 ## Tech stack
 
@@ -58,6 +62,10 @@ icon and every in-app string.
 - [flutter_local_notifications](https://pub.dev/packages/flutter_local_notifications)
 - [app_settings](https://pub.dev/packages/app_settings) to deep-link into
   the OS notification settings screen
+- [firebase_core](https://pub.dev/packages/firebase_core),
+  [firebase_auth](https://pub.dev/packages/firebase_auth), and
+  [cloud_firestore](https://pub.dev/packages/cloud_firestore) for
+  cloud-synced events (anonymous auth + optional email link)
 - [speech_to_text](https://pub.dev/packages/speech_to_text) for voice input
 - [hijri](https://pub.dev/packages/hijri) for Hijri calendar conversion
 - [adhan](https://pub.dev/packages/adhan) for astronomical prayer times
@@ -89,6 +97,14 @@ first launch). If a reminder doesn't arrive, check Profile → Notifications
 — it shows whether the permission is actually granted, with a direct link
 to the system settings screen if not.
 
+Events sync to a Firebase project (Firestore + Anonymous/Email auth
+enabled). `lib/firebase_options.dart` and the platform config files
+(`ios/Runner/GoogleService-Info.plist`,
+`android/app/google-services.json`) are already wired up for this
+project's own Firebase backend (`mawid-8bba0`) — to point the app at a
+different Firebase project, replace those three with your own (via the
+Firebase console or the `flutterfire` CLI) and re-run `flutter pub get`.
+
 ### Testing
 
 ```bash
@@ -104,31 +120,35 @@ period words, English control cases) — run it after touching
 
 ```
 lib/
-├── main.dart                          # Entry point: locale/theme wiring,
-│                                       #   capability registration, welcome vs. home routing
+├── main.dart                          # Entry point: Firebase init, locale/theme
+│                                       #   wiring, capability registration, routing
+├── firebase_options.dart              # Per-platform Firebase config (this project's backend)
 ├── core/                              # Framework-agnostic contracts & models
 │   ├── models.dart
 │   └── assistant/contracts.dart       # EventParser, PrayerTimeProvider, Capability
 ├── capabilities/
 │   └── calendar/                      # The calendar capability (first of many)
 │       ├── calendar_capability.dart   # Capability registration (id, title)
-│       ├── data/sources.dart          # Repositories + natural-language parser
+│       ├── data/
+│       │   ├── sources.dart               # Natural-language parser + legacy local repo
+│       │   └── cloud_event_repository.dart  # Firestore-backed EventRepository
 │       ├── domain/
-│       │   ├── calendar_domain.dart
+│       │   ├── calendar_domain.dart       # EventRepository contract + use cases
 │       │   └── date_reference_parser.dart  # Shared relative/absolute date parsing
 │       └── presentation/              # Screens & Riverpod providers
 │           ├── welcome_screen.dart        # First-launch name capture
 │           ├── today_screen.dart          # HomeShell (bottom nav) + agenda
 │           ├── calendar_screen.dart       # Month grid
 │           ├── search_screen.dart
-│           ├── profile_screen.dart
+│           ├── profile_screen.dart        # Includes the cloud-backup card
 │           ├── notification_settings_screen.dart
 │           ├── event_detail_screen.dart
 │           ├── edit_event_screen.dart
 │           └── providers.dart
 └── shared/
     ├── localization/                  # AppStrings (ar/en), locale, Hijri dates
-    ├── services/                      # Notifications, speech, user prefs
+    ├── services/                      # Notifications, speech, auth, user prefs
+    │   ├── cloud_auth_service.dart        # Anonymous auth + optional email link
     │   ├── notification_service.dart
     │   ├── notification_settings.dart
     │   ├── speech_service.dart
@@ -152,6 +172,10 @@ with the same `CapabilityRegistry` without touching existing code.
 - Purely numeric Hijri dates (`5/2/1448`) aren't recognized — use the
   month name instead (`5 صفر` / `5 Safar`).
 - Recurring events aren't supported yet.
+- The default anonymous cloud account only reliably survives a
+  reinstall on the *same* device (its credential lives in the OS
+  keychain). Recovering events on a new or wiped device requires having
+  linked an email first, from Profile.
 
 ## Author
 
