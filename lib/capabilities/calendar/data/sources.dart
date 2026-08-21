@@ -15,6 +15,10 @@ class LocalEventRepository implements EventRepository {
   final SharedPreferences _prefs;
   static const _key = 'meetmind_events';
 
+  /// true لو فيه مواعيد محفوظة فعليًا من قبل — بعكس all()، ما يرجع true
+  /// لبيانات العرض الافتراضية (seed) لو ما فيه شي محفوظ أصلًا.
+  bool get hasSavedEvents => _prefs.containsKey(_key);
+
   List<CalendarEvent> _read() {
     final raw = _prefs.getString(_key);
     if (raw == null) return _seed();

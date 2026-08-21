@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:meetmind/capabilities/calendar/data/cloud_event_repository.dart';
 import 'package:meetmind/capabilities/calendar/data/sources.dart';
 import 'package:meetmind/capabilities/calendar/domain/calendar_domain.dart';
 import 'package:meetmind/core/assistant/contracts.dart';
 import 'package:meetmind/core/models.dart';
 import 'package:meetmind/shared/localization/app_strings.dart';
+import 'package:meetmind/shared/services/cloud_auth_service.dart';
 import 'package:meetmind/shared/services/notification_service.dart';
 import 'package:meetmind/shared/services/notification_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,6 +26,12 @@ final prayerTimeProvider =
     Provider<PrayerTimeProvider>((ref) => AdhanPrayerTimeProvider());
 
 final eventRepositoryProvider = Provider<EventRepository>(
+  (ref) => FirestoreEventRepository(CloudAuthService.instance),
+);
+
+/// المستودع القديم (SharedPreferences) — يبقى موجود بس عشان النقل لمرة
+/// وحدة للمواعيد اللي كانت محفوظة قبل تفعيل المزامنة السحابية.
+final _legacyEventRepositoryProvider = Provider<LocalEventRepository>(
   (ref) => LocalEventRepository(ref.read(sharedPreferencesProvider)),
 );
 
@@ -50,9 +58,32 @@ final agendaProvider =
 );
 
 class AgendaNotifier extends AsyncNotifier<List<CalendarEvent>> {
+  static const _migratedKey = 'meetmind_cloud_migrated';
+
   @override
-  Future<List<CalendarEvent>> build() =>
-      ref.read(eventRepositoryProvider).all();
+  Future<List<CalendarEvent>> build() async {
+    await _migrateLegacyEventsIfNeeded();
+    return ref.read(eventRepositoryProvider).all();
+  }
+
+  /// ينقل مواعيد كانت محفوظة محليًا (قبل تفعيل المزامنة السحابية) لمرة
+  /// وحدة فقط — بعدين يعلّم النقل كخلاص عشان ما يتكرر كل تشغيل. لو ما فيه
+  /// مواعيد محفوظة فعليًا (تركيب جديد)، ما نسوي شي — بعكس all() اللي يرجع
+  /// بيانات عرض افتراضية (seed) حتى لو ما فيه شي محفوظ أصلًا.
+  Future<void> _migrateLegacyEventsIfNeeded() async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    if (prefs.getBool(_migratedKey) ?? false) return;
+
+    final legacyRepository = ref.read(_legacyEventRepositoryProvider);
+    if (legacyRepository.hasSavedEvents) {
+      final legacyEvents = await legacyRepository.all();
+      final cloudRepository = ref.read(eventRepositoryProvider);
+      for (final event in legacyEvents) {
+        await cloudRepository.add(event);
+      }
+    }
+    await prefs.setBool(_migratedKey, true);
+  }
 
   Future<ReminderScheduleResult?> add(CalendarEvent event) async {
     final repository = ref.read(eventRepositoryProvider);

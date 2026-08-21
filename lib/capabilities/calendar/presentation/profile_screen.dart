@@ -3,15 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meetmind/capabilities/calendar/presentation/notification_settings_screen.dart';
 import 'package:meetmind/shared/localization/app_strings.dart';
 import 'package:meetmind/shared/localization/locale_provider.dart';
+import 'package:meetmind/shared/services/cloud_auth_service.dart';
 import 'package:meetmind/shared/services/notification_settings.dart';
 import 'package:meetmind/shared/services/user_service.dart';
 import 'package:meetmind/shared/theme/theme_provider.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final themeMode = ref.watch(themeModeProvider);
@@ -63,6 +69,10 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+
+          // حماية المواعيد (نسخة احتياطية سحابية)
+          _cloudBackupCard(theme, cs, s),
           const SizedBox(height: 16),
 
           // الإعدادات
@@ -153,6 +163,120 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Widget _cloudBackupCard(ThemeData theme, ColorScheme cs, AppStrings s) {
+    final auth = CloudAuthService.instance;
+    final secured = !auth.isAnonymous;
+
+    return Card(
+      color: secured ? cs.primaryContainer.withValues(alpha: 0.4) : null,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              secured ? Icons.cloud_done_outlined : Icons.cloud_outlined,
+              color: secured ? cs.primary : cs.onSurfaceVariant,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    secured ? s.cloudBackupSecuredTitle : s.cloudBackupTitle,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    secured
+                        ? s.cloudBackupSecuredBody(auth.linkedEmail ?? '')
+                        : s.cloudBackupBody,
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  if (!secured) ...[
+                    const SizedBox(height: 10),
+                    OutlinedButton(
+                      onPressed: () => _linkEmail(context, s),
+                      child: Text(s.linkEmailAction),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _linkEmail(BuildContext context, AppStrings s) async {
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.linkEmailAction),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: emailController,
+              autofocus: true,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(
+                labelText: s.emailLabel,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: s.passwordLabel,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(s.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(s.save),
+          ),
+        ],
+      ),
+    );
+
+    if (submitted != true) return;
+    if (emailController.text.trim().isEmpty || passwordController.text.isEmpty) {
+      return;
+    }
+    if (!context.mounted) return;
+
+    try {
+      await CloudAuthService.instance.linkWithEmail(
+        emailController.text.trim(),
+        passwordController.text,
+      );
+      if (!context.mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(s.linkEmailSuccess)));
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(s.linkEmailError)));
+    }
   }
 
   Future<void> _logout(BuildContext context, WidgetRef ref, AppStrings s) async {

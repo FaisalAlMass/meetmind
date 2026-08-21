@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "71747791377",
+    "project_id": "mawid-8bba0",
+    "storage_bucket": "mawid-8bba0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:71747791377:android:4c79f6e315cadec4fb9fb0",
+        "android_client_info": {
+          "package_name": "com.faisalalmass.mawid"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB18aQDelh5Cdb0TUb5bRpRHaRBlo5th-Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

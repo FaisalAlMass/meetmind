@@ -87,6 +87,19 @@ class AppStrings {
             'وقت التذكير قريب جدًا من الآن — ما قدرنا نجدوله لهذا الموعد.',
         notifPermissionDeniedSnack =
             'إذن الإشعارات مرفوض — فعّله من إعدادات النظام عشان توصلك التذكيرات.',
+        cloudBackupTitle = 'أمّن نسختك الاحتياطية',
+        cloudBackupBody =
+            'مواعيدك محفوظة تلقائيًا وتنجو من حذف التطبيق على هذا الجهاز. '
+            'لكن لو ضاع جوالك أو غيّرته، ما تقدر تسترجعها بدون بريد مرتبط.',
+        cloudBackupSecuredTitle = '✓ نسختك الاحتياطية مؤمّنة',
+        cloudBackupSecuredBody =
+            ((email) => 'مرتبطة بـ $email — تقدر تسترجع مواعيدك من أي جهاز.'),
+        linkEmailAction = 'أمّن بالبريد الإلكتروني',
+        emailLabel = 'البريد الإلكتروني',
+        passwordLabel = 'كلمة المرور',
+        linkEmailSuccess = 'تم تأمين نسختك الاحتياطية بنجاح',
+        linkEmailError =
+            'تعذّر الربط — تأكد من صحة البريد وإن كلمة المرور 6 أحرف على الأقل',
         listSeparator = '، ',
         weekdayDatePattern = 'EEEE، d MMMM',
         weekdayDateYearPattern = 'EEEE، d MMMM y',
@@ -192,6 +205,21 @@ class AppStrings {
         notifPermissionDeniedSnack =
             'Notification permission denied — enable it in system settings '
             'to get reminders.',
+        cloudBackupTitle = 'Secure your backup',
+        cloudBackupBody =
+            'Your events are saved automatically and survive deleting the '
+            "app on this device. But if you lose or switch phones, you "
+            "can't recover them without a linked email.",
+        cloudBackupSecuredTitle = '✓ Your backup is secured',
+        cloudBackupSecuredBody = ((email) =>
+            'Linked to $email — you can recover your events on any device.'),
+        linkEmailAction = 'Secure with email',
+        emailLabel = 'Email',
+        passwordLabel = 'Password',
+        linkEmailSuccess = 'Your backup is now secured',
+        linkEmailError =
+            'Could not link — check the email and that the password is at '
+            'least 6 characters',
         listSeparator = ', ',
         weekdayDatePattern = 'EEEE, d MMMM',
         weekdayDateYearPattern = 'EEEE, d MMMM y',
@@ -283,6 +311,14 @@ class AppStrings {
   final String testNotificationSent;
   final String reminderTimePassed;
   final String notifPermissionDeniedSnack;
+  final String cloudBackupTitle;
+  final String cloudBackupBody;
+  final String cloudBackupSecuredTitle;
+  final String linkEmailAction;
+  final String emailLabel;
+  final String passwordLabel;
+  final String linkEmailSuccess;
+  final String linkEmailError;
   final String listSeparator;
   final String weekdayDatePattern;
   final String weekdayDateYearPattern;
@@ -300,6 +336,7 @@ class AppStrings {
   final String Function(int minutes) reminderBefore;
   final String Function(int minutes) reminderSummary;
   final String Function(String title, int minutes) notifBody;
+  final String Function(String email) cloudBackupSecuredBody;
 }
 
 final appStringsProvider = Provider<AppStrings>((ref) {
