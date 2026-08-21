@@ -1,4 +1,4 @@
-package com.example.meetmind
+package com.faisalalmass.mawid
 
 import io.flutter.embedding.android.FlutterActivity
 
