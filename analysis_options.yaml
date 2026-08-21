@@ -9,6 +9,13 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  # يستبعد نسخ الحزم اللي يجيبها Xcode عبر Swift Package Manager داخل
+  # build/ — بعضها (زي flutterfire) يحتوي كود Dart كامل، فالمحلل يلقى نفس
+  # النوع معرّف مرتين ويطلع آلاف الأخطاء الوهمية لو ما استثنينا هذا المسار.
+  exclude:
+    - build/**
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`
