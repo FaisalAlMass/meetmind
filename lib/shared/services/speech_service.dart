@@ -53,7 +53,9 @@ class SpeechService {
         localeId: localeId ?? lang,
         // بدون pauseFor، بعض المنصات (خصوصًا iOS) تفضل بجلسة استماع
         // مفتوحة للأبد ولا تعتبر الكلام "خلص" إلا لو المستخدم أوقفها يدويًا.
-        pauseFor: const Duration(seconds: 2),
+        // مدة كافية عشان سكتة تنفّس طبيعية وسط جملة طويلة ما توقف التسجيل
+        // قبل لا يخلص المستخدم كلامه.
+        pauseFor: const Duration(seconds: 4),
         listenFor: const Duration(seconds: 30),
       ),
     );
