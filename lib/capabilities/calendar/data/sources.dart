@@ -170,17 +170,31 @@ class NaturalLanguageEventParser implements EventParser {
   };
 
   // كلمات تقطع عبارة "مع/with" أو "في/in" — تمنع التقاطها كأسماء
-  // مشاركين أو جزء من اسم مكان.
+  // مشاركين أو جزء من اسم مكان. أضفنا كلمات "الموضوع" (لمناقشة/بخصوص/
+  // موضوع) بعد ما لاحظنا إنها كانت تُبتلع كاملة داخل اسم المكان أو
+  // المشاركين لما تجي بدون فاصلة قبلها.
   static const List<String> _clauseBoundaryWords = [
     'at', 'on', 'after', 'for', 'in', 'tomorrow', 'today', 'tonight',
     'غدا', 'بكرة', 'اليوم', 'الليلة', 'يوم', 'بعد', 'الساعة', 'الساعه',
     'لمدة', 'مدة', 'في', 'مع',
+    'لمناقشة', 'بخصوص', 'موضوعه', 'موضوعها', 'موضوع', 'حول',
   ];
 
   // كلمات شائعة بعد with/مع مالها علاقة بأسماء أشخاص فعلية.
   static const Set<String> _participantStopWords = {
     'the', 'a', 'an', 'no', 'some', 'our', 'my', 'their', 'his', 'her',
     'everyone', 'everybody', 'anyone', 'anybody', 'team', 'و',
+  };
+
+  // ألقاب/بادئات تلتصق باسم الشخص أو الجهة — لو فصلناها بالمسافة العادية
+  // بنطلع بـ"مشاركين" وهميين (زي "الأستاذ" و"محمد" منفصلين بدل شخص وحد).
+  static const Set<String> _nameTitlePrefixes = {
+    'الأستاذ', 'الأستاذة', 'أستاذ', 'أستاذة',
+    'الدكتور', 'الدكتورة', 'دكتور', 'دكتورة',
+    'المهندس', 'المهندسة', 'مهندس', 'مهندسة',
+    'الشيخ', 'الشيخة', 'شيخ', 'شيخة',
+    'أبو', 'ابو', 'أم', 'ام',
+    'فريق', 'إدارة', 'ادارة', 'قسم', 'لجنة',
   };
 
   // لوحة المفاتيح العربية بالعادة تكتب أرقام هندية (٠-٩) مو غربية (0-9)،
@@ -207,12 +221,23 @@ class NaturalLanguageEventParser implements EventParser {
     return buffer.toString();
   }
 
+  // تشكيل عربي (فتحة/ضمة/كسرة/تنوين/شدّة/سكون: U+064B-U+0652، ألف خنجرية:
+  // U+0670، تطويل: U+0640) — يفصل حروف كلمة زي "عصرًا" لـ ع-ص-ر-[تنوين]-ا
+  // فيمنع مطابقة "عصرا" كسلسلة متصلة. نحذفه قبل أي مطابقة نمطية.
+  static final RegExp _diacritics = RegExp(
+    '[ـًٌٍَُِّْٰ]',
+  );
+
+  static String _stripDiacritics(String input) =>
+      input.replaceAll(_diacritics, '');
+
   @override
   Future<CaptureDraft?> parse(String text, {DateTime? now}) async {
     final base = now ?? DateTime.now();
-    final raw = text.trim();
-    if (raw.isEmpty) return null;
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return null;
 
+    final raw = _stripDiacritics(trimmed);
     final low = _normalizeDigits(raw.toLowerCase());
     final flags = <EventField>{};
 
@@ -235,7 +260,9 @@ class NaturalLanguageEventParser implements EventParser {
   }
 
   /// يفتش عن مكان بعد "في"/"in" — نفس منطق استخراج المشاركين بالضبط
-  /// (يوقف عند أول كلمة تاريخ/وقت/مدة/مشارك).
+  /// (يوقف عند أول كلمة تاريخ/وقت/مدة/مشارك). لو ما لقى "في"، يجرب صيغة
+  /// "بـ" الملتصقة بالتعريف ("بالخبر"، "بالرياض") — شائعة جدًا بالعامية
+  /// ومالها نفس صيغة "في" (كلمة منفصلة بمسافة).
   String? _location(String raw) {
     final boundary = {
       ..._clauseBoundaryWords,
@@ -244,12 +271,17 @@ class NaturalLanguageEventParser implements EventParser {
     }.map(RegExp.escape).join('|');
 
     final match = RegExp(
-      '(?:في|in)\\s+(.+?)(?=\\s+(?:$boundary)(?:\\s|\$|[.,،])|[.,،]|\$)',
+      '(?:في|in)\\s+(.+?)(?=\\s+(?:$boundary)(?:\\s|\$|[.,،؟!])|[.,،؟!]|\$)',
       caseSensitive: false,
     ).firstMatch(raw);
-    if (match == null) return null;
-    final place = match.group(1)!.trim();
-    return place.isEmpty ? null : place;
+    if (match != null) {
+      final place = match.group(1)!.trim();
+      return place.isEmpty ? null : place;
+    }
+
+    final prefixed = RegExp(r'(?:^|\s)بال([^\s.,،؟!]+)').firstMatch(raw);
+    if (prefixed != null) return 'ال${prefixed.group(1)}';
+    return null;
   }
 
   List<String> _participants(String raw) {
@@ -261,21 +293,54 @@ class NaturalLanguageEventParser implements EventParser {
 
     // ملاحظة: \b غير موثوق مع الحروف العربية في Dart RegExp (يعتمد على
     // \w اللي يغطي فقط a-z0-9_)، فنتحقق يدويًا إن الكلمة انتهت بمسافة/نهاية.
+    // الفاصلة نفسها ما توقف القطعة هنا (بعكس المكان) — لأنها بالعادة تفصل
+    // بين أسماء بنفس قائمة المشاركين ("مع منى، فهد، وريم")، مو بداية جملة
+    // ثانية؛ الفاصل الحقيقي هو كلمة حدّية أو نهاية الجملة (نقطة/علامة سؤال)
+    // أو بداية مكان بصيغة "بـ" الملتصقة بالتعريف ("بالخبر") — نفس الصيغة
+    // اللي يتعرف عليها _location.
     final match = RegExp(
-      '(?:with|مع)\\s+(.+?)(?=\\s+(?:$boundary)(?:\\s|\$|[.,،])|[.,،]|\$)',
+      '(?:with|مع)\\s+(.+?)(?=\\s+بال[^\\s.,،؟!]+|\\s+(?:$boundary)(?:\\s|\$|[.,،؟!])|[.؟!]|\$)',
       caseSensitive: false,
     ).firstMatch(raw);
     if (match == null) return const [];
     final clause = match.group(1)!.trim();
     if (clause.isEmpty) return const [];
 
-    return clause
-        .split(RegExp(r'\s*,\s*|\s*،\s*|\s+and\s+|\s+', caseSensitive: false))
-        .map(_stripArabicConjunction)
-        .map((n) => n.trim())
-        .where((n) => n.isNotEmpty)
-        .where((n) => !_participantStopWords.contains(n.toLowerCase()))
-        .toList();
+    final tokens =
+        clause.split(RegExp(r'\s*,\s*|\s*،\s*|\s+and\s+|\s+', caseSensitive: false));
+
+    // نمرّ على الكلمات يدويًا (بدل .map/.where بسيطة) عشان نقدر نلحق لقب
+    // زي "الأستاذ"/"فريق" بالكلمة (الكلمات) اللي بعده كاسم واحد، بدل ما
+    // ينفصلون كـ"مشاركين" وهميين. نفحص اللقب على الكلمة بعد تجريدها من "و"
+    // حتى لو كانت ملتصقة فيها ("والمهندس سعد")، ونوقف الإلحاق عند أول كلمة
+    // معلّمة بـ"و" بالأول (شخص جديد) أو نهاية القائمة.
+    final people = <String>[];
+    var i = 0;
+    while (i < tokens.length) {
+      final token = _stripArabicConjunction(tokens[i]).trim();
+      if (token.isEmpty || _participantStopWords.contains(token.toLowerCase())) {
+        i++;
+        continue;
+      }
+      if (_nameTitlePrefixes.contains(token)) {
+        final parts = [token];
+        var j = i + 1;
+        while (j < tokens.length &&
+            !(tokens[j].length > 1 && tokens[j].startsWith('و'))) {
+          final next = tokens[j].trim();
+          if (next.isNotEmpty && !_participantStopWords.contains(next.toLowerCase())) {
+            parts.add(next);
+          }
+          j++;
+        }
+        people.add(parts.join(' '));
+        i = j;
+      } else {
+        people.add(token);
+        i++;
+      }
+    }
+    return people;
   }
 
   String _stripArabicConjunction(String word) {
@@ -300,12 +365,14 @@ class NaturalLanguageEventParser implements EventParser {
   Duration? _duration(String low) {
     const marker = r'(?:for|لمدة|مدة)\s+';
 
-    if (RegExp('$marker(?:نص|نصف)\\s*ساعة').hasMatch(low) ||
-        RegExp('${marker}half\\s*(?:an?\\s*)?hour').hasMatch(low)) {
+    // "an?\s+" اختيارية بعد الماركر — تسمح بـ"for a quarter hour"/"for a
+    // half hour" (أداة نكرة بين "for" والكمية)، مو بس "for half an hour".
+    if (RegExp('$marker(?:an?\\s+)?(?:نص|نصف)\\s*ساعة').hasMatch(low) ||
+        RegExp('$marker(?:an?\\s+)?half\\s*(?:an?\\s*)?hour').hasMatch(low)) {
       return const Duration(minutes: 30);
     }
-    if (RegExp('$markerربع\\s*ساعة').hasMatch(low) ||
-        RegExp('${marker}quarter\\s*(?:of an?\\s*)?hour').hasMatch(low)) {
+    if (RegExp('$marker(?:an?\\s+)?ربع\\s*ساعة').hasMatch(low) ||
+        RegExp('$marker(?:an?\\s+)?quarter\\s*(?:of an?\\s*)?hour').hasMatch(low)) {
       return const Duration(minutes: 15);
     }
     if (RegExp('$markerساعتين').hasMatch(low)) {
@@ -339,13 +406,16 @@ class NaturalLanguageEventParser implements EventParser {
   }
 
   DateTime _start(String low, DateTime day, Set<EventField> flags) {
-    final prayer = _prayer(low);
-    if (prayer != null) return prayerTimes.timeFor(prayer, day);
-
+    // وقت صريح ("الساعة 3") له أولوية على اسم الصلاة — لو قال "الساعة 3
+    // العصر" يقصد 3 بعد الظهر، مو وقت صلاة العصر الفعلي (اللي يختلف كل
+    // يوم). اسم الصلاة يُستخدم فقط لما ما فيه وقت صريح ("بعد صلاة العصر").
     final clock = _clock(low) ?? _wordClock(low);
     if (clock != null) {
       return DateTime(day.year, day.month, day.day, clock[0], clock[1]);
     }
+
+    final prayer = _prayer(low);
+    if (prayer != null) return prayerTimes.timeFor(prayer, day);
 
     flags.add(EventField.time);
     return DateTime(day.year, day.month, day.day, 9, 0);
@@ -417,9 +487,16 @@ class NaturalLanguageEventParser implements EventParser {
     return [hour, minute];
   }
 
-  /// يفهم "مساءً/مساء"، "عصرًا"، و"بالليل/الليل" كـ pm، و"صباحًا/صباح" كـ am.
+  /// يفهم "مساءً/مساء"، "عصرًا/العصر"، "ظهرًا/الظهر"، و"بالليل/الليل" كـ
+  /// pm، و"صباحًا/صباح" كـ am. ملاحظة: هذا يُستدعى فقط من _clock/_wordClock
+  /// بعد ما يكون فيه وقت صريح (رقم أو اسم ساعة بالحروف) — يعني "العصر"/
+  /// "الظهر" هنا تُفهم كوصف فترة يوم مع وقت محدد ("الساعة 3 العصر" = 3
+  /// بعد الظهر)، مو كطلب صريح لوقت الصلاة نفسه (هذا تتكفل فيه _prayer
+  /// لما ما يكون فيه وقت صريح أصلًا).
   String? _arabicPeriod(String low) {
-    if (RegExp(r'مساء|عصرا|ليلا|الليل').hasMatch(low)) return 'pm';
+    if (RegExp(r'مساء|عصرا|العصر|ظهرا|الظهر|ليلا|الليل').hasMatch(low)) {
+      return 'pm';
+    }
     if (RegExp(r'صباح').hasMatch(low)) return 'am';
     return null;
   }
