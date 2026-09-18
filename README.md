@@ -33,8 +33,18 @@ icon and every in-app string.
   via the Umm al-Qura method.
 - **Robust Arabic time parsing** — understands Eastern Arabic-Indic digits
   (٣، ٥، ١٠…) as well as Western digits, spelled-out hour words ("الساعة
-  الثالثة مساء", "السادسة والنصف", "إلا ربع"), and period words (مساء،
-  عصرًا، صباحًا، بالليل) — not just the digit+"pm" pattern.
+  الثالثة مساء", "السادسة والنصف", "إلا ربع"), period words (مساء، عصرًا،
+  ظهرًا، صباحًا، بالليل — with or without tashkeel), and text with
+  diacritics stripped before matching — not just the digit+"pm" pattern.
+  An explicit time always outranks a same-sentence prayer name ("الساعة 3
+  العصر" is 3pm, not the literal Asr prayer time).
+- **Multi-participant and titled-name extraction** — "مع منى، فهد، وريم"
+  captures all three, not just the first; titles/kunyas stick to the name
+  they belong to ("الدكتورة منى", "المهندس سعد", "أبو سلطان") instead of
+  splitting into phantom extra participants. Locations are recognized via
+  both "في الرياض" and the attached "بـ" prefix ("بالخبر"), and topic
+  phrases ("لمناقشة…", "بخصوص…") are excluded from both fields instead of
+  being swallowed into them.
 - **Local notifications** — reminders with a configurable lead time (5,
   10, 15, 30, or 60 minutes before), a custom notification tone, and
   delivery whether the app is open in the foreground or fully closed in
@@ -50,7 +60,10 @@ icon and every in-app string.
 - **Four-tab home** — Today (agenda + quick capture), Calendar (month
   grid), Search, and Profile (name, language, theme, notifications, cloud
   backup), all backed by the same cloud-synced store.
-- **Dark mode** and a **Material 3** interface.
+- **Dark mode** and a **Material 3** interface, themed from the
+  organization's approved brand palette (primary green, gold and
+  emerald accents) with hand-verified WCAG-AA contrast on every color
+  pairing.
 
 ## Tech stack
 
@@ -105,6 +118,17 @@ project's own Firebase backend (`mawid-8bba0`) — to point the app at a
 different Firebase project, replace those three with your own (via the
 Firebase console or the `flutterfire` CLI) and re-run `flutter pub get`.
 
+**Real iOS device installs with a free Apple ID (no paid Developer
+Program) expire after 7 days** — this is an Apple signing policy, not
+something the project can work around. When the app stops opening, run
+`flutter run --release -d <device>` again to re-sign and reinstall. The
+`Runner` Xcode scheme's Run action defaults to the **Release**
+configuration specifically so that pressing Run in Xcode (e.g. while
+troubleshooting a signing/trust prompt) can't silently reinstall a
+Debug build — Debug builds refuse to launch at all unless Xcode's
+tooling is attached, which looks like the app crashing to a white
+screen when tapped from the home screen.
+
 ### Testing
 
 ```bash
@@ -112,9 +136,14 @@ flutter test
 ```
 
 `test/parser_test.dart` is a regression suite for the natural-language
-date/time parser (digit normalization, spelled-out Arabic hour words,
-period words, English control cases) — run it after touching
-`NaturalLanguageEventParser`.
+parser: digit normalization, spelled-out Arabic hour words, period
+words, prayer-name-vs-explicit-time priority, comma-separated
+multi-participant lists, titled/kunya name extraction, "بـ"-prefixed
+locations, topic-phrase exclusion, and English duration phrasing — run
+it after touching `NaturalLanguageEventParser`. It was built up by
+running large batches (30+ sentences so far) of varied real-world
+phrasings through the parser and fixing whatever broke; the same
+approach is the fastest way to catch the next gap.
 
 ## Project structure
 
@@ -172,6 +201,17 @@ with the same `CapabilityRegistry` without touching existing code.
 - Purely numeric Hijri dates (`5/2/1448`) aren't recognized — use the
   month name instead (`5 صفر` / `5 Safar`).
 - Recurring events aren't supported yet.
+- `"بعد بكرة"` (day after tomorrow) currently resolves to plain
+  "tomorrow" — `DateReferenceParser` matches the `"بكرة"` substring
+  without accounting for the `"بعد"` prefix, and doesn't flag the date
+  as low-confidence when it does this, so it's silently one day off.
+- A time with a bare digit and no am/pm cue (`"الساعة 9"`) defaults to
+  AM without flagging low-confidence, even though the period was
+  genuinely guessed, not stated.
+- Two-word names with no recognized title/kunya and no comma between
+  them (`"سارة أحمد"`, `"John Smith"`) still split into two separate
+  participants — there's no reliable way to distinguish "one compound
+  name" from "two people" without a title cue or a separator.
 - The default anonymous cloud account only reliably survives a
   reinstall on the *same* device (its credential lives in the OS
   keychain). Recovering events on a new or wiped device requires having
