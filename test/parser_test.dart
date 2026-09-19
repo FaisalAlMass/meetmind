@@ -212,4 +212,128 @@ void main() {
       expect(draft!.end.difference(draft.start), const Duration(minutes: 15));
     });
   });
+
+  group('English abbreviated titles with a period ("Dr.", "Mrs.")', () {
+    test('period no longer truncates the name', () async {
+      expect(
+          await participantsOf(
+              'Schedule a meeting with Dr. Ahmed next Monday at 3pm'),
+          ['Dr Ahmed']);
+    });
+
+    test('two titled people joined by "and" stay separate', () async {
+      expect(
+          await participantsOf(
+              'Schedule a meeting with Dr. Ahmed and Mrs. Sara next Monday at noon'),
+          ['Dr Ahmed', 'Mrs Sara']);
+    });
+
+    test('Arabic single-letter abbreviation ("أ.") merges with the name',
+        () async {
+      expect(await participantsOf('اجتماع مع أ. محمد الساعة 4 عصرا'),
+          ['أ محمد']);
+    });
+  });
+
+  group('"and" is filtered like other filler words', () {
+    test('Oxford-comma list doesn\'t leak a stray "and" participant',
+        () async {
+      expect(
+          await participantsOf(
+              'Call with John, Mary, and Tom tomorrow at 10:30am'),
+          ['John', 'Mary', 'Tom']);
+    });
+  });
+
+  group('بال-location heuristic excludes common non-location adverbs', () {
+    test('"بالضبط" is not mistaken for a place', () async {
+      expect(await locationOf('موعد الظهر بالضبط مع منير'), isNull);
+    });
+  });
+
+  group('date-modifier words don\'t leak into participants', () {
+    test('"this" before a weekday is filtered out', () async {
+      expect(
+          await participantsOf(
+              'Dinner with Noura this Friday at 7pm'),
+          ['Noura']);
+    });
+
+    test('"next" before a weekday is filtered out', () async {
+      expect(
+          await participantsOf('Meeting with Sam next Tuesday 11am'),
+          ['Sam']);
+    });
+
+    test('"القادم" before a weekday is filtered out', () async {
+      expect(
+          await participantsOf('اجتماع مع سالم يوم الأربعاء القادم الساعة 10'),
+          ['سالم']);
+    });
+  });
+
+  group('قبل (before) is a clause boundary, symmetric with بعد (after)', () {
+    test('excluded from the participant clause', () async {
+      expect(
+          await participantsOf('اجتماع مع فريق الموارد البشرية قبل صلاة الجمعة'),
+          ['فريق الموارد البشرية']);
+    });
+  });
+
+  group('English topic words (about/regarding) excluded like Arabic ones', () {
+    test('"about" excluded from participants', () async {
+      expect(
+          await participantsOf(
+              'Quick sync with HR team about the new policy at 1pm'),
+          ['HR']);
+    });
+
+    test('"the day after tomorrow" doesn\'t leak "day" into participants',
+        () async {
+      expect(
+          await participantsOf(
+              'Meeting with Prof. Layla the day after tomorrow at 3pm'),
+          ['Prof Layla']);
+    });
+  });
+
+  group('extended title/kunya coverage', () {
+    test('الرئيس (title without a fixed English equivalent)', () async {
+      expect(
+          await participantsOf('اجتماع مع الرئيس التنفيذي غدا الساعة 10'),
+          ['الرئيس التنفيذي']);
+    });
+
+    test('أخي (kinship word) merges with the name', () async {
+      expect(await participantsOf('اجتماع مع أخي سعد الساعة 3'),
+          ['أخي سعد']);
+    });
+  });
+
+  group('English named times (noon/midnight)', () {
+    test('noon means 12:00', () async {
+      expect(await startOf('Meeting with Ahmed at noon'),
+          DateTime(2026, 8, 20, 12, 0));
+    });
+
+    test('midnight means 00:00', () async {
+      expect(await startOf('Meeting with Ahmed at midnight'),
+          DateTime(2026, 8, 20, 0, 0));
+    });
+  });
+
+  group('"day after tomorrow" / "بعد بكرة" resolve two days out, not one',
+      () {
+    test('Arabic', () async {
+      expect(await startOf('اجتماع بعد بكرة الساعة 10 صباحا'),
+          DateTime(2026, 8, 22, 10));
+    });
+
+    test('English', () async {
+      expect(
+          await startOf(
+              'Meeting with Layla the day after tomorrow at 3pm'),
+          DateTime(2026, 8, 22, 15));
+    });
+  });
 }

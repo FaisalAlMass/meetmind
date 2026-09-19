@@ -171,31 +171,48 @@ class NaturalLanguageEventParser implements EventParser {
 
   // كلمات تقطع عبارة "مع/with" أو "في/in" — تمنع التقاطها كأسماء
   // مشاركين أو جزء من اسم مكان. أضفنا كلمات "الموضوع" (لمناقشة/بخصوص/
-  // موضوع) بعد ما لاحظنا إنها كانت تُبتلع كاملة داخل اسم المكان أو
-  // المشاركين لما تجي بدون فاصلة قبلها.
+  // موضوع/about/regarding) بعد ما لاحظنا إنها كانت تُبتلع كاملة داخل اسم
+  // المكان أو المشاركين لما تجي بدون فاصلة قبلها، و"قبل" (بالتناظر مع
+  // "بعد" الموجودة) بعد ملاحظة نفس المشكلة مع "قبل صلاة الجمعة".
   static const List<String> _clauseBoundaryWords = [
-    'at', 'on', 'after', 'for', 'in', 'tomorrow', 'today', 'tonight',
-    'غدا', 'بكرة', 'اليوم', 'الليلة', 'يوم', 'بعد', 'الساعة', 'الساعه',
-    'لمدة', 'مدة', 'في', 'مع',
+    'at', 'on', 'after', 'before', 'for', 'in', 'tomorrow', 'today',
+    'tonight', 'about', 'regarding', 'concerning',
+    'غدا', 'بكرة', 'اليوم', 'الليلة', 'يوم', 'بعد', 'قبل', 'الساعة',
+    'الساعه', 'لمدة', 'مدة', 'في', 'مع',
     'لمناقشة', 'بخصوص', 'موضوعه', 'موضوعها', 'موضوع', 'حول',
   ];
 
-  // كلمات شائعة بعد with/مع مالها علاقة بأسماء أشخاص فعلية.
+  // كلمات شائعة بعد with/مع مالها علاقة بأسماء أشخاص فعلية. أضفنا "and"
+  // (تسرّب أحيانًا كمشارك وهمي مع قوائم فيها فاصلة أكسفورد: "A, B, and C")
+  // وكلمات تعديل التاريخ ("this"/"next"/"القادم"/"الجاي") اللي كانت
+  // تُبتلع لو جت مباشرة قبل اسم يوم الأسبوع بلا فاصل.
   static const Set<String> _participantStopWords = {
     'the', 'a', 'an', 'no', 'some', 'our', 'my', 'their', 'his', 'her',
-    'everyone', 'everybody', 'anyone', 'anybody', 'team', 'و',
+    'everyone', 'everybody', 'anyone', 'anybody', 'team', 'and', 'this',
+    'next', 'coming', 'day', 'days', 'و', 'القادم', 'القادمة', 'الجاي',
+    'الجايه',
   };
 
   // ألقاب/بادئات تلتصق باسم الشخص أو الجهة — لو فصلناها بالمسافة العادية
   // بنطلع بـ"مشاركين" وهميين (زي "الأستاذ" و"محمد" منفصلين بدل شخص وحد).
+  // المطابقة غير حساسة لحالة الأحرف (يشمل الألقاب الإنجليزية المختصرة).
   static const Set<String> _nameTitlePrefixes = {
     'الأستاذ', 'الأستاذة', 'أستاذ', 'أستاذة',
     'الدكتور', 'الدكتورة', 'دكتور', 'دكتورة',
     'المهندس', 'المهندسة', 'مهندس', 'مهندسة',
     'الشيخ', 'الشيخة', 'شيخ', 'شيخة',
-    'أبو', 'ابو', 'أم', 'ام',
+    'الرئيس', 'الرئيسة', 'المدير', 'المديرة', 'الوزير', 'الوزيرة',
+    'أبو', 'ابو', 'أم', 'ام', 'أخي', 'أختي', 'ابني', 'ابنتي',
     'فريق', 'إدارة', 'ادارة', 'قسم', 'لجنة',
+    'dr', 'mr', 'mrs', 'ms', 'prof', 'eng',
+    // نسخ بلا نقطة من اختصارات _stripTitleAbbreviationPeriods ("أ."،
+    // "د."، "م.") — تنحذف نقطتها قبل الوصول هنا، فلازم تُعرف بشكلها المجرد.
+    'أ', 'د', 'م',
   };
+
+  bool _isTitlePrefix(String token) =>
+      _nameTitlePrefixes.contains(token) ||
+      _nameTitlePrefixes.contains(token.toLowerCase());
 
   // لوحة المفاتيح العربية بالعادة تكتب أرقام هندية (٠-٩) مو غربية (0-9)،
   // و\d بالـ RegExp ما يتعرف إلا على الغربية — فنحوّلها قبل أي مطابقة.
@@ -231,13 +248,28 @@ class NaturalLanguageEventParser implements EventParser {
   static String _stripDiacritics(String input) =>
       input.replaceAll(_diacritics, '');
 
+  // اختصارات ألقاب بنقطة (Dr.، Mr.، أ.، د.، م.) — النقطة نفسها توقف
+  // استخراج المشاركين عندها (بما إنها نفس علامة نهاية الجملة)، فتقطع
+  // الاسم بعدها. نشيل النقطة الملتصقة بالاختصار قبل أي استخراج.
+  static final RegExp _titleAbbreviationPeriod = RegExp(
+    r'\b(Dr|Mr|Mrs|Ms|Prof|Eng)\.|(^|\s)(أ|د|م)\.',
+    caseSensitive: false,
+  );
+
+  static String _stripTitleAbbreviationPeriods(String input) =>
+      input.replaceAllMapped(_titleAbbreviationPeriod, (m) {
+        final en = m.group(1);
+        if (en != null) return en;
+        return '${m.group(2)}${m.group(3)}';
+      });
+
   @override
   Future<CaptureDraft?> parse(String text, {DateTime? now}) async {
     final base = now ?? DateTime.now();
     final trimmed = text.trim();
     if (trimmed.isEmpty) return null;
 
-    final raw = _stripDiacritics(trimmed);
+    final raw = _stripTitleAbbreviationPeriods(_stripDiacritics(trimmed));
     final low = _normalizeDigits(raw.toLowerCase());
     final flags = <EventField>{};
 
@@ -280,9 +312,22 @@ class NaturalLanguageEventParser implements EventParser {
     }
 
     final prefixed = RegExp(r'(?:^|\s)بال([^\s.,،؟!]+)').firstMatch(raw);
-    if (prefixed != null) return 'ال${prefixed.group(1)}';
+    if (prefixed != null) {
+      final word = 'ال${prefixed.group(1)}';
+      // "بالضبط"/"بالتحديد"... ظروف شائعة بنفس صيغة "بـ+تعريف" مالها
+      // علاقة بمكان — نستثنيها حتى ما تنقرأ كموقع غلط.
+      if (_commonNonLocationBaPhrases.contains(word)) return null;
+      return word;
+    }
     return null;
   }
+
+  // كلمات شائعة بصيغة "بال..." مالها علاقة بمكان — استثناء لـ heuristic
+  // موقع "بـ + تعريف" (بالخبر، بالرياض...). قائمة غير شاملة بالضرورة.
+  static const Set<String> _commonNonLocationBaPhrases = {
+    'الضبط', 'التحديد', 'الطبع', 'التالي', 'الإضافة', 'الاضافة',
+    'النسبة', 'الفعل', 'المناسبة', 'الخصوص', 'الكامل', 'النهاية',
+  };
 
   List<String> _participants(String raw) {
     final boundary = {
@@ -322,11 +367,16 @@ class NaturalLanguageEventParser implements EventParser {
         i++;
         continue;
       }
-      if (_nameTitlePrefixes.contains(token)) {
+      if (_isTitlePrefix(token)) {
         final parts = [token];
         var j = i + 1;
+        // نوقف الإلحاق عند أول كلمة معلّمة بـ"و" (صيغة عربية: "والدكتور
+        // خالد") أو كلمة هي نفسها لقب معروف (صيغة إنجليزية بلا "و" ملتصقة:
+        // "Dr Ahmed and Mrs Sara" — "and" تُستهلك كفاصل عادي، فـ"Mrs" هو
+        // أول إشارة إن شخص جديد بدأ).
         while (j < tokens.length &&
-            !(tokens[j].length > 1 && tokens[j].startsWith('و'))) {
+            !(tokens[j].length > 1 && tokens[j].startsWith('و')) &&
+            !_isTitlePrefix(tokens[j])) {
           final next = tokens[j].trim();
           if (next.isNotEmpty && !_participantStopWords.contains(next.toLowerCase())) {
             parts.add(next);
@@ -409,7 +459,7 @@ class NaturalLanguageEventParser implements EventParser {
     // وقت صريح ("الساعة 3") له أولوية على اسم الصلاة — لو قال "الساعة 3
     // العصر" يقصد 3 بعد الظهر، مو وقت صلاة العصر الفعلي (اللي يختلف كل
     // يوم). اسم الصلاة يُستخدم فقط لما ما فيه وقت صريح ("بعد صلاة العصر").
-    final clock = _clock(low) ?? _wordClock(low);
+    final clock = _clock(low) ?? _wordClock(low) ?? _namedTime(low);
     if (clock != null) {
       return DateTime(day.year, day.month, day.day, clock[0], clock[1]);
     }
@@ -419,6 +469,13 @@ class NaturalLanguageEventParser implements EventParser {
 
     flags.add(EventField.time);
     return DateTime(day.year, day.month, day.day, 9, 0);
+  }
+
+  /// كلمات وقت إنجليزية ثابتة مالها رقم — "noon"/"midnight".
+  List<int>? _namedTime(String low) {
+    if (RegExp(r'\bnoon\b').hasMatch(low)) return [12, 0];
+    if (RegExp(r'\bmidnight\b').hasMatch(low)) return [0, 0];
+    return null;
   }
 
   // "الساعة الثالثة مساء" — صيغة شائعة جدًا بالعربي (اسم الساعة بالحروف

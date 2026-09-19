@@ -45,6 +45,11 @@ class DateReferenceParser {
   static DateTime? tryParse(String rawText, DateTime today) {
     final low = rawText.toLowerCase();
 
+    // لازم نفحصها قبل "غدا/بكرة" المجردة — وإلا "بعد بكرة" تنقرأ غلط
+    // كـ"بكرة" العادية بسبب المطابقة الجزئية (substring) بالأسفل.
+    if (RegExp(r'day after tomorrow|بعد بكرة|بعد غدا').hasMatch(low)) {
+      return today.add(const Duration(days: 2));
+    }
     if (RegExp(r'tomorrow|غدا|بكرة').hasMatch(low)) {
       return today.add(const Duration(days: 1));
     }
