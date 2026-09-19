@@ -40,11 +40,14 @@ icon and every in-app string.
   العصر" is 3pm, not the literal Asr prayer time).
 - **Multi-participant and titled-name extraction** — "مع منى، فهد، وريم"
   captures all three, not just the first; titles/kunyas stick to the name
-  they belong to ("الدكتورة منى", "المهندس سعد", "أبو سلطان") instead of
-  splitting into phantom extra participants. Locations are recognized via
-  both "في الرياض" and the attached "بـ" prefix ("بالخبر"), and topic
-  phrases ("لمناقشة…", "بخصوص…") are excluded from both fields instead of
-  being swallowed into them.
+  they belong to in both languages ("الدكتورة منى", "أبو سلطان", "Dr.
+  Ahmed", "Mrs. Sara") instead of splitting into phantom extra
+  participants — including two titled people joined by "and" with no
+  Arabic "و" cue. Locations are recognized via both "في الرياض" and the
+  attached "بـ" prefix ("بالخبر", but not common non-location adverbs
+  like "بالضبط"), and topic phrases ("لمناقشة…", "بخصوص…", "about…",
+  "regarding…") are excluded from both fields instead of being swallowed
+  into them.
 - **Local notifications** — reminders with a configurable lead time (5,
   10, 15, 30, or 60 minutes before), a custom notification tone, and
   delivery whether the app is open in the foreground or fully closed in
@@ -138,12 +141,16 @@ flutter test
 `test/parser_test.dart` is a regression suite for the natural-language
 parser: digit normalization, spelled-out Arabic hour words, period
 words, prayer-name-vs-explicit-time priority, comma-separated
-multi-participant lists, titled/kunya name extraction, "بـ"-prefixed
-locations, topic-phrase exclusion, and English duration phrasing — run
-it after touching `NaturalLanguageEventParser`. It was built up by
-running large batches (30+ sentences so far) of varied real-world
-phrasings through the parser and fixing whatever broke; the same
-approach is the fastest way to catch the next gap.
+multi-participant lists, titled/kunya name extraction in both languages
+(including abbreviated English titles like "Dr."), "بـ"-prefixed
+locations, Arabic and English topic-phrase exclusion, date-modifier
+words ("this"/"next"/"القادم") not leaking into names, "day after
+tomorrow"/"بعد بكرة", English named times ("noon"/"midnight"), and
+English duration phrasing — run it after touching
+`NaturalLanguageEventParser`. It was built up by running large batches
+(60+ sentences so far, in three rounds) of varied real-world phrasings
+through the parser and fixing whatever broke; the same approach is the
+fastest way to catch the next gap.
 
 ## Project structure
 
@@ -201,10 +208,9 @@ with the same `CapabilityRegistry` without touching existing code.
 - Purely numeric Hijri dates (`5/2/1448`) aren't recognized — use the
   month name instead (`5 صفر` / `5 Safar`).
 - Recurring events aren't supported yet.
-- `"بعد بكرة"` (day after tomorrow) currently resolves to plain
-  "tomorrow" — `DateReferenceParser` matches the `"بكرة"` substring
-  without accounting for the `"بعد"` prefix, and doesn't flag the date
-  as low-confidence when it does this, so it's silently one day off.
+- Relative dates beyond "tomorrow"/"day after tomorrow" (`"بعد اسبوع"`,
+  "next week") aren't understood — correctly flagged low-confidence
+  rather than guessed wrong, but the date still defaults to today.
 - A time with a bare digit and no am/pm cue (`"الساعة 9"`) defaults to
   AM without flagging low-confidence, even though the period was
   genuinely guessed, not stated.
@@ -212,6 +218,20 @@ with the same `CapabilityRegistry` without touching existing code.
   them (`"سارة أحمد"`, `"John Smith"`) still split into two separate
   participants — there's no reliable way to distinguish "one compound
   name" from "two people" without a title cue or a separator.
+- Capture requires an explicit "مع"/"with" marker before a name —
+  "Call Sarah at 5pm" or "احجز موعد الساعة 5" with no one named falls
+  back to using the whole sentence as the title (correctly flagged
+  low-confidence) rather than guessing a name from context.
+- Explicit time ranges (`"من الساعة 3 إلى 5"`, `"from 3 to 5"`) aren't
+  recognized as defining the event's duration — only the start time is
+  read, and duration falls back to the default 1 hour unless a separate
+  `"لمدة"`/`"for"` phrase is also given.
+- Spelled-out Arabic minutes (`"سبعة وعشرين دقيقة"`) aren't recognized —
+  only spelled-out *hours*, optionally with `"والنصف"`/`"وربع"`/`"إلا
+  ربع"`, are.
+- "at" isn't recognized as a location marker (only "في"/"in" and the
+  attached "بـ" prefix are) — English locations phrased as "at the
+  Ritz" are missed, since "at" is already the English time marker.
 - The default anonymous cloud account only reliably survives a
   reinstall on the *same* device (its credential lives in the OS
   keychain). Recovering events on a new or wiped device requires having
