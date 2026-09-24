@@ -9,7 +9,8 @@ class AppStrings {
   AppStrings._ar()
       : languageCode = 'ar',
         appName = 'موعد',
-        navToday = 'اليوم',
+        navHome = 'الرئيسية',
+        upcomingEvents = 'المواعيد القادمة',
         navCalendar = 'التقويم',
         navSearch = 'بحث',
         navProfile = 'أنت',
@@ -122,7 +123,8 @@ class AppStrings {
   AppStrings._en()
       : languageCode = 'en',
         appName = "Maw'id",
-        navToday = 'Today',
+        navHome = 'Home',
+        upcomingEvents = 'Upcoming events',
         navCalendar = 'Calendar',
         navSearch = 'Search',
         navProfile = 'You',
@@ -243,7 +245,8 @@ class AppStrings {
 
   final String languageCode;
   final String appName;
-  final String navToday;
+  final String navHome;
+  final String upcomingEvents;
   final String navCalendar;
   final String navSearch;
   final String navProfile;

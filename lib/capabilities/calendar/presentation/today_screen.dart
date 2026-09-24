@@ -46,7 +46,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           NavigationDestination(
               icon: const Icon(Icons.home_outlined),
               selectedIcon: const Icon(Icons.home),
-              label: s.navToday),
+              label: s.navHome),
           NavigationDestination(
               icon: const Icon(Icons.calendar_today_outlined),
               selectedIcon: const Icon(Icons.calendar_today),
@@ -159,6 +159,14 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
 
   String _fmtTime(DateTime d, String lang) => DateFormat.jm(lang).format(d);
 
+  /// يستثني المواعيد اللي تاريخها قبل اليوم — يبقي مواعيد اليوم (حتى لو
+  /// وقتها فات) وكل الجايّة بعدها، بدل عرض كل السجل التاريخي.
+  List<CalendarEvent> _upcoming(List<CalendarEvent> events) {
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    return events.where((e) => !e.start.isBefore(startOfToday)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -236,9 +244,9 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(s.navToday, style: theme.textTheme.titleMedium),
+              Text(s.upcomingEvents, style: theme.textTheme.titleMedium),
               agenda.maybeWhen(
-                data: (events) => Text(s.eventsCount(events.length),
+                data: (events) => Text(s.eventsCount(_upcoming(events).length),
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: cs.onSurfaceVariant)),
                 orElse: () => const SizedBox.shrink(),
@@ -247,15 +255,18 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
           ),
           const SizedBox(height: 8),
           agenda.when(
-            data: (events) => events.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: EmptyState(message: s.noEventsYet),
-                  )
-                : Column(
-                    children: events
-                        .map((e) => _agendaTile(theme, e, s, lang))
-                        .toList()),
+            data: (events) {
+              final upcoming = _upcoming(events);
+              return upcoming.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: EmptyState(message: s.noEventsYet),
+                    )
+                  : Column(
+                      children: upcoming
+                          .map((e) => _agendaTile(theme, e, s, lang))
+                          .toList());
+            },
             loading: () => const Padding(
                 padding: EdgeInsets.all(24),
                 child: Center(child: CircularProgressIndicator())),
