@@ -276,6 +276,7 @@ git checkout vX.Y.Z
 | `1.0.0` | First tagged baseline. |
 | `1.1.0` | Motion/brand-identity UI pass; live Firestore sync + parallel app startup; weekday-parsing fix and required-time prompt for the capture flow. |
 | `1.2.0` | Home tab (formerly "Today") now shows "Upcoming events" filtered from today's date onward instead of the full event history. |
+| `1.2.1` | Profile's version number now reads the real build version (`package_info_plus`) instead of a hardcoded `'1.0.0'` string. |
 
 ## Author
 
