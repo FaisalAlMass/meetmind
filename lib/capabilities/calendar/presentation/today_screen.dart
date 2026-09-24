@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:intl/intl.dart';
 import 'package:meetmind/capabilities/calendar/presentation/calendar_screen.dart';
 import 'package:meetmind/capabilities/calendar/presentation/event_detail_screen.dart';
@@ -7,6 +8,7 @@ import 'package:meetmind/capabilities/calendar/presentation/profile_screen.dart'
 import 'package:meetmind/capabilities/calendar/presentation/providers.dart';
 import 'package:meetmind/capabilities/calendar/presentation/search_screen.dart';
 import 'package:meetmind/capabilities/calendar/presentation/widgets/capture_confirmation_card.dart';
+import 'package:meetmind/capabilities/calendar/domain/calendar_domain.dart';
 import 'package:meetmind/core/models.dart';
 import 'package:meetmind/shared/localization/app_strings.dart';
 import 'package:meetmind/shared/localization/hijri_date.dart';
@@ -35,6 +37,24 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+
+    // ضغطة على ودجت الشاشة الرئيسية (iOS) — تفتح تبويب اليوم وتركّز حقل
+    // الكتابة، سواء التطبيق كان شغّال أصلًا (widgetClicked) أو انفتح
+    // بسببها من الصفر (initiallyLaunchedFromHomeWidget).
+    ref.listenManual(captureFocusRequestProvider, (prev, next) {
+      if (prev != null) setState(() => _index = 0);
+    });
+    HomeWidget.widgetClicked.listen((_) {
+      ref.read(captureFocusRequestProvider.notifier).request();
+    });
+    HomeWidget.initiallyLaunchedFromHomeWidget().then((uri) {
+      if (uri != null) ref.read(captureFocusRequestProvider.notifier).request();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final s = ref.watch(appStringsProvider);
     return Scaffold(
@@ -44,17 +64,19 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: [
           NavigationDestination(
-              icon: const Icon(Icons.home_outlined),
-              selectedIcon: const Icon(Icons.home),
+              icon: const Icon(Icons.space_dashboard_outlined),
+              selectedIcon: const Icon(Icons.space_dashboard),
               label: s.navHome),
           NavigationDestination(
-              icon: const Icon(Icons.calendar_today_outlined),
-              selectedIcon: const Icon(Icons.calendar_today),
+              icon: const Icon(Icons.calendar_month_outlined),
+              selectedIcon: const Icon(Icons.calendar_month),
               label: s.navCalendar),
           NavigationDestination(
               icon: const Icon(Icons.search), label: s.navSearch),
           NavigationDestination(
-              icon: const Icon(Icons.person_outline), label: s.navProfile),
+              icon: const Icon(Icons.person_2_outlined),
+              selectedIcon: const Icon(Icons.person_2),
+              label: s.navProfile),
         ],
       ),
     );
@@ -83,6 +105,19 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
       Tween(begin: 1.0, end: 1.15).animate(
     CurvedAnimation(parent: _micPulse, curve: Curves.easeInOut),
   );
+
+  @override
+  void initState() {
+    super.initState();
+    // HomeShell يبقي كل التبويبات حية بـ IndexedStack، فهالمستمع يشتغل
+    // طول عمر التطبيق بغض النظر عن التبويب المعروض حاليًا.
+    ref.listenManual(captureFocusRequestProvider, (prev, next) {
+      if (prev == null) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) FocusScope.of(context).requestFocus(_focus);
+      });
+    });
+  }
 
   @override
   void dispose() {
@@ -158,14 +193,6 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
   }
 
   String _fmtTime(DateTime d, String lang) => DateFormat.jm(lang).format(d);
-
-  /// يستثني المواعيد اللي تاريخها قبل اليوم — يبقي مواعيد اليوم (حتى لو
-  /// وقتها فات) وكل الجايّة بعدها، بدل عرض كل السجل التاريخي.
-  List<CalendarEvent> _upcoming(List<CalendarEvent> events) {
-    final now = DateTime.now();
-    final startOfToday = DateTime(now.year, now.month, now.day);
-    return events.where((e) => !e.start.isBefore(startOfToday)).toList();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -246,7 +273,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
             children: [
               Text(s.upcomingEvents, style: theme.textTheme.titleMedium),
               agenda.maybeWhen(
-                data: (events) => Text(s.eventsCount(_upcoming(events).length),
+                data: (events) => Text(s.eventsCount(upcomingEvents(events).length),
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: cs.onSurfaceVariant)),
                 orElse: () => const SizedBox.shrink(),
@@ -256,7 +283,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
           const SizedBox(height: 8),
           agenda.when(
             data: (events) {
-              final upcoming = _upcoming(events);
+              final upcoming = upcomingEvents(events);
               return upcoming.isEmpty
                   ? Padding(
                       padding: const EdgeInsets.symmetric(vertical: 24),

@@ -1,11 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:home_widget/home_widget.dart';
+import 'package:intl/intl.dart';
 import 'package:meetmind/capabilities/calendar/data/cloud_event_repository.dart';
 import 'package:meetmind/capabilities/calendar/data/sources.dart';
 import 'package:meetmind/capabilities/calendar/domain/calendar_domain.dart';
 import 'package:meetmind/core/assistant/contracts.dart';
 import 'package:meetmind/core/models.dart';
 import 'package:meetmind/shared/localization/app_strings.dart';
+import 'package:meetmind/shared/localization/locale_provider.dart';
 import 'package:meetmind/shared/services/cloud_auth_service.dart';
 import 'package:meetmind/shared/services/notification_service.dart';
 import 'package:meetmind/shared/services/notification_settings.dart';
@@ -286,4 +291,55 @@ class CaptureController extends Notifier<CaptureState> {
   }
 
   void discard() => state = state.copyWith(clearPending: true);
+}
+
+// --- Home-widget sync ---
+
+/// عدّاد يزيد كل ما فيه طلب خارجي (ضغطة على ودجت الشاشة الرئيسية) يفتح
+/// تبويب اليوم ويركّز حقل الكتابة — عداد مو bool عشان لو ضغط المستخدم
+/// الودجت مرتين متتاليتين وهو أصلًا بتبويب اليوم، يتفعّل التركيز برضو.
+final captureFocusRequestProvider =
+    NotifierProvider<CaptureFocusRequestNotifier, int>(
+        CaptureFocusRequestNotifier.new);
+
+class CaptureFocusRequestNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+  void request() => state = state + 1;
+}
+
+/// Provider بلا قيمة فعلية — غرضه الوحيد إنه يبقى حي طول عمر التطبيق
+/// ويراقب agendaProvider/اللغة، وكل ما تغيّر شي منهم يعكس آخر المواعيد
+/// القادمة على ودجت الشاشة الرئيسية بـ iOS.
+final homeWidgetSyncProvider = Provider<void>((ref) {
+  void sync() {
+    final events = ref.read(agendaProvider).value;
+    if (events == null) return; // تجاهل حالة التحميل/الخطأ المؤقتة
+    _syncHomeWidget(ref, events);
+  }
+
+  ref.listen<AsyncValue<List<CalendarEvent>>>(
+      agendaProvider, (prev, next) => sync());
+  ref.listen(localeProvider, (prev, next) => sync());
+  sync();
+});
+
+Future<void> _syncHomeWidget(Ref ref, List<CalendarEvent> events) async {
+  final s = ref.read(appStringsProvider);
+  final lang = ref.read(localeProvider).languageCode;
+  final upcoming = upcomingEvents(events).take(8).map((e) => {
+        'title': e.title,
+        'timeText': DateFormat.jm(lang).format(e.start),
+        'isFocus': e.isFocus,
+      }).toList();
+
+  final payload = jsonEncode({
+    'events': upcoming,
+    'upcomingLabel': s.upcomingEvents,
+    'emptyLabel': s.noEventsYet,
+    'isRTL': lang == 'ar',
+  });
+
+  await HomeWidget.saveWidgetData<String>('widget_agenda', payload);
+  await HomeWidget.updateWidget(iOSName: 'MawidWidget');
 }

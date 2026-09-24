@@ -15,6 +15,16 @@ abstract class EventRepository {
   Stream<List<CalendarEvent>> watchAll();
 }
 
+/// Events from the start of today onward, sorted ascending — the single
+/// source of truth for "upcoming", shared between the Today screen and the
+/// home-widget data sync so both never disagree.
+List<CalendarEvent> upcomingEvents(List<CalendarEvent> events, {DateTime? now}) {
+  final n = now ?? DateTime.now();
+  final startOfToday = DateTime(n.year, n.month, n.day);
+  return events.where((e) => !e.start.isBefore(startOfToday)).toList()
+    ..sort((a, b) => a.start.compareTo(b.start));
+}
+
 /// Pure, dependency-free overlap logic. Treats back-to-back events (shared
 /// boundary) as non-conflicting.
 class ConflictDetector {

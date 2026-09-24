@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:meetmind/capabilities/calendar/calendar_capability.dart';
 import 'package:meetmind/capabilities/calendar/presentation/providers.dart';
@@ -35,6 +36,7 @@ Future<void> main() async {
     NotificationService.instance.init(),
     Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
         .then((_) => CloudAuthService.instance.ensureSignedIn()),
+    HomeWidget.setAppGroupId('group.com.faisalalmass.mawid'),
   ]);
 
   final prefs = await prefsFuture;
@@ -63,6 +65,7 @@ class MeetMindApp extends ConsumerWidget {
     final userName = ref.watch(userNameProvider);
     final locale = ref.watch(localeProvider);
     final s = ref.watch(appStringsProvider);
+    ref.watch(homeWidgetSyncProvider);
 
     return MaterialApp(
       title: s.appName,
