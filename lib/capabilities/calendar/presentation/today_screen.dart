@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:meetmind/capabilities/calendar/presentation/calendar_screen.dart';
@@ -7,11 +6,11 @@ import 'package:meetmind/capabilities/calendar/presentation/event_detail_screen.
 import 'package:meetmind/capabilities/calendar/presentation/profile_screen.dart';
 import 'package:meetmind/capabilities/calendar/presentation/providers.dart';
 import 'package:meetmind/capabilities/calendar/presentation/search_screen.dart';
+import 'package:meetmind/capabilities/calendar/presentation/widgets/capture_confirmation_card.dart';
 import 'package:meetmind/core/models.dart';
 import 'package:meetmind/shared/localization/app_strings.dart';
 import 'package:meetmind/shared/localization/hijri_date.dart';
 import 'package:meetmind/shared/localization/locale_provider.dart';
-import 'package:meetmind/shared/services/notification_service.dart';
 import 'package:meetmind/shared/services/speech_service.dart';
 import 'package:meetmind/shared/services/user_service.dart';
 import 'package:meetmind/shared/widgets/empty_state.dart';
@@ -226,7 +225,10 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
                 ? Padding(
                     key: const ValueKey('pending'),
                     padding: const EdgeInsets.only(top: 12),
-                    child: _confirmationCard(theme, capture.pending!, s, lang),
+                    child: CaptureConfirmationCard(
+                      result: capture.pending!,
+                      onResolved: () => _input.clear(),
+                    ),
                   )
                 : const SizedBox.shrink(key: ValueKey('empty')),
           ),
@@ -318,134 +320,6 @@ class _TodayScreenState extends ConsumerState<TodayScreen>
           ],
         ),
       ),
-    );
-  }
-
-  Widget _confirmationCard(
-      ThemeData theme, CaptureResult result, AppStrings s, String lang) {
-    final cs = theme.colorScheme;
-    final draft = result.draft;
-    final notifier = ref.read(captureControllerProvider.notifier);
-    bool low(EventField f) => draft.lowConfidence.contains(f);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(s.confirmBeforeSave,
-                style: theme.textTheme.labelMedium
-                    ?.copyWith(color: cs.onSurfaceVariant)),
-            const SizedBox(height: 10),
-            _field(theme, Icons.title, draft.title, low(EventField.title)),
-            const SizedBox(height: 8),
-            _dateField(theme, draft.start, draft.end, s, lang,
-                low(EventField.date) || low(EventField.time)),
-            if (draft.participants.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              _field(theme, Icons.group,
-                  draft.participants.join(s.listSeparator), false),
-            ],
-            if (draft.location != null) ...[
-              const SizedBox(height: 8),
-              _field(theme, Icons.location_on_outlined, draft.location!, false),
-            ],
-            if (result.conflicts.isNotEmpty) ...[
-              const Divider(height: 24),
-              Row(
-                children: [
-                  Icon(Icons.warning_amber, size: 16, color: cs.tertiary),
-                  const SizedBox(width: 6),
-                  Text(s.conflictsWith(result.conflicts.length),
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: cs.tertiary)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: result.suggestions
-                    .map((slot) => ActionChip(
-                          label: Text(_fmtTime(slot, lang)),
-                          onPressed: () => notifier.pickSlot(slot),
-                        ))
-                    .toList(),
-              ),
-            ],
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () async {
-                      final scheduleResult = await notifier.confirm();
-                      _input.clear();
-                      HapticFeedback.lightImpact();
-                      if (!mounted) return;
-                      final warning = switch (scheduleResult) {
-                        ReminderScheduleResult.reminderAlreadyPassed =>
-                          s.reminderTimePassed,
-                        ReminderScheduleResult.permissionDenied =>
-                          s.notifPermissionDeniedSnack,
-                        _ => null,
-                      };
-                      if (warning != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(warning)),
-                        );
-                      }
-                    },
-                    child: Text(s.saveEvent),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                    onPressed: notifier.discard, child: Text(s.discard)),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _field(ThemeData theme, IconData icon, String value, bool uncertain) {
-    final cs = theme.colorScheme;
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: cs.onSurfaceVariant),
-        const SizedBox(width: 10),
-        Expanded(child: Text(value)),
-        if (uncertain) Icon(Icons.warning_amber, size: 16, color: cs.tertiary),
-      ],
-    );
-  }
-
-  Widget _dateField(ThemeData theme, DateTime start, DateTime end,
-      AppStrings s, String lang, bool uncertain) {
-    final cs = theme.colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(Icons.event, size: 18, color: cs.onSurfaceVariant),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                  '${hijriDateString(start, lang, withWeekday: false)} · '
-                  '${DateFormat.jm(lang).format(start)} — '
-                  '${DateFormat.jm(lang).format(end)}'),
-              Text(DateFormat(s.weekdayDatePattern, lang).format(start),
-                  style: theme.textTheme.labelSmall
-                      ?.copyWith(color: cs.onSurfaceVariant)),
-            ],
-          ),
-        ),
-        if (uncertain) Icon(Icons.warning_amber, size: 16, color: cs.tertiary),
-      ],
     );
   }
 

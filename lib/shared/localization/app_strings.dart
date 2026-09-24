@@ -20,6 +20,8 @@ class AppStrings {
         confirmBeforeSave = 'تأكيد قبل الحفظ',
         saveEvent = 'حفظ الموعد',
         discard = 'تجاهل',
+        noTimeStatedPrompt = 'لم يُذكر وقت الاجتماع — حدده قبل الحفظ',
+        pickTimeAction = 'تحديد الوقت',
         deleteEventTitle = 'حذف الموعد',
         cancel = 'إلغاء',
         delete = 'حذف',
@@ -132,6 +134,8 @@ class AppStrings {
         confirmBeforeSave = 'Confirm before saving',
         saveEvent = 'Save event',
         discard = 'Discard',
+        noTimeStatedPrompt = 'No time was mentioned — set it before saving',
+        pickTimeAction = 'Pick time',
         deleteEventTitle = 'Delete event',
         cancel = 'Cancel',
         delete = 'Delete',
@@ -250,6 +254,8 @@ class AppStrings {
   final String confirmBeforeSave;
   final String saveEvent;
   final String discard;
+  final String noTimeStatedPrompt;
+  final String pickTimeAction;
   final String deleteEventTitle;
   final String cancel;
   final String delete;

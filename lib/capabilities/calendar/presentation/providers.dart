@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meetmind/capabilities/calendar/data/cloud_event_repository.dart';
 import 'package:meetmind/capabilities/calendar/data/sources.dart';
@@ -196,7 +197,9 @@ class CaptureController extends Notifier<CaptureState> {
   void setInput(String value) =>
       state = state.copyWith(input: value, notUnderstood: false);
 
-  Future<void> submit() async {
+  /// [referenceDay] — يستخدمه شاشة التقويم عشان لو ما فيه تاريخ مذكور
+  /// بالنص، الموعد ينحط باليوم المحدد بالتقويم بدل اليوم الحالي دايمًا.
+  Future<void> submit({DateTime? referenceDay}) async {
     final text = state.input.trim();
     if (text.isEmpty) return;
 
@@ -209,9 +212,51 @@ class CaptureController extends Notifier<CaptureState> {
         notUnderstood: true,
         clearPending: true,
       );
-    } else {
-      state = state.copyWith(processing: false, pending: result);
+      return;
     }
+
+    var draft = result.draft;
+    if (referenceDay != null && draft.lowConfidence.contains(EventField.date)) {
+      final shifted = DateTime(referenceDay.year, referenceDay.month,
+          referenceDay.day, draft.start.hour, draft.start.minute);
+      draft = draft.copyWith(
+        start: shifted,
+        end: shifted.add(draft.end.difference(draft.start)),
+      );
+    }
+
+    state = state.copyWith(
+      processing: false,
+      pending: CaptureResult(
+        draft: draft,
+        conflicts: result.conflicts,
+        suggestions: result.suggestions,
+      ),
+    );
+  }
+
+  void setTime(TimeOfDay time) {
+    final current = state.pending;
+    if (current == null) return;
+
+    final d = current.draft;
+    final start =
+        DateTime(d.start.year, d.start.month, d.start.day, time.hour, time.minute);
+    final duration = d.end.difference(d.start);
+    final flags = {...d.lowConfidence}..remove(EventField.time);
+    final draft = d.copyWith(
+      start: start,
+      end: start.add(duration),
+      lowConfidence: flags,
+    );
+
+    state = state.copyWith(
+      pending: CaptureResult(
+        draft: draft,
+        conflicts: current.conflicts,
+        suggestions: current.suggestions,
+      ),
+    );
   }
 
   void pickSlot(DateTime start) {

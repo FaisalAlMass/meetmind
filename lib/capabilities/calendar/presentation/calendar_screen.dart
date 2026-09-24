@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:meetmind/capabilities/calendar/presentation/event_detail_screen.dart';
 import 'package:meetmind/capabilities/calendar/presentation/providers.dart';
+import 'package:meetmind/capabilities/calendar/presentation/widgets/capture_confirmation_card.dart';
 import 'package:meetmind/core/models.dart';
 import 'package:meetmind/shared/localization/app_strings.dart';
 import 'package:meetmind/shared/localization/hijri_date.dart';
@@ -29,88 +30,89 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
-  Future<void> _addEventForSelectedDay(AppStrings s) async {
+  /// نفس تجربة الالتقاط الذكي اللي بشاشة اليوم — نص حر يتفهّم منه التاريخ
+  /// والوقت والموقع والمشاركين، بدل حقول يدوية منفصلة. لو النص ما ذكر
+  /// تاريخ، يفترض اليوم المحدد بالتقويم (referenceDay) بدل اليوم الحالي
+  /// دايمًا.
+  void _addEventForSelectedDay(AppStrings s) {
     final day = _selectedDay ?? DateTime.now();
-    final titleController = TextEditingController();
-    final locationController = TextEditingController();
-    TimeOfDay pickedTime = const TimeOfDay(hour: 9, minute: 0);
+    final input = TextEditingController();
 
-    final saved = await showDialog<bool>(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(s.newEvent),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titleController,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    labelText: s.eventTitleLabel,
-                    border: const OutlineInputBorder(),
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+        ),
+        child: Consumer(
+          builder: (ctx, ref, _) {
+            final capture = ref.watch(captureControllerProvider);
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(s.newEvent, style: Theme.of(ctx).textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: input,
+                          autofocus: true,
+                          onChanged: (v) => ref
+                              .read(captureControllerProvider.notifier)
+                              .setInput(v),
+                          onSubmitted: (_) => ref
+                              .read(captureControllerProvider.notifier)
+                              .submit(referenceDay: day),
+                          decoration: InputDecoration(
+                            hintText: s.captureHint,
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (capture.processing)
+                        const Padding(
+                          padding: EdgeInsets.all(8),
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      else
+                        IconButton.filled(
+                          onPressed: () => ref
+                              .read(captureControllerProvider.notifier)
+                              .submit(referenceDay: day),
+                          icon: const Icon(Icons.arrow_upward, size: 18),
+                        ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: locationController,
-                  decoration: InputDecoration(
-                    labelText: s.locationLabel,
-                    prefixIcon: const Icon(Icons.location_on_outlined),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.access_time),
-                  title: Text(s.timeLabel),
-                  subtitle: Text(pickedTime.format(ctx)),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () async {
-                    final t = await showTimePicker(
-                      context: ctx,
-                      initialTime: pickedTime,
-                    );
-                    if (t != null) setDialogState(() => pickedTime = t);
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(s.cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(s.addAction),
-            ),
-          ],
+                  if (capture.pending != null) ...[
+                    const SizedBox(height: 12),
+                    CaptureConfirmationCard(
+                      result: capture.pending!,
+                      onResolved: () {
+                        input.clear();
+                        Navigator.of(ctx).pop();
+                      },
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
-
-    if (saved == true && titleController.text.trim().isNotEmpty) {
-      final start = DateTime(
-        day.year,
-        day.month,
-        day.day,
-        pickedTime.hour,
-        pickedTime.minute,
-      );
-      final location = locationController.text.trim();
-      final event = CalendarEvent(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        title: titleController.text.trim(),
-        start: start,
-        end: start.add(const Duration(hours: 1)),
-        location: location.isEmpty ? null : location,
-      );
-      await ref.read(agendaProvider.notifier).add(event);
-    }
   }
 
   @override

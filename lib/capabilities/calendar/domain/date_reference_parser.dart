@@ -43,7 +43,7 @@ class DateReferenceParser {
   /// يحاول يفهم مرجع تاريخ داخل [rawText] بالنسبة لـ [today]. يرجع null
   /// لو ما لقى أي مرجع تاريخ صريح.
   static DateTime? tryParse(String rawText, DateTime today) {
-    final low = rawText.toLowerCase();
+    final low = _normalizeAlef(rawText.toLowerCase());
 
     // لازم نفحصها قبل "غدا/بكرة" المجردة — وإلا "بعد بكرة" تنقرأ غلط
     // كـ"بكرة" العادية بسبب المطابقة الجزئية (substring) بالأسفل.
@@ -82,9 +82,13 @@ class DateReferenceParser {
     return null;
   }
 
+  /// توحيد أشكال الألف المهموزة (أ/إ/آ) لألف عادية — عشان "الاحد" تطابق
+  /// "الأحد" بدل ما تحتاج نكرر كل كلمة تبدأ بألف بصيغتين بالخريطة.
+  static String _normalizeAlef(String s) => s.replaceAll(RegExp('[أإآ]'), 'ا');
+
   static int? _weekday(String low) {
     for (final entry in _weekdayNames.entries) {
-      if (low.contains(entry.key)) return entry.value;
+      if (low.contains(_normalizeAlef(entry.key))) return entry.value;
     }
     return null;
   }

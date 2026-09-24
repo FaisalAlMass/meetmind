@@ -272,6 +272,21 @@ void main() {
     });
   });
 
+  group('weekday names resolve to the correct next occurrence', () {
+    test('hamzated spelling ("الأحد") resolves to the actual next Sunday',
+        () async {
+      expect(await startOf('اجتماع يوم الأحد القادم الساعة 10'),
+          DateTime(2026, 8, 23, 10));
+    });
+
+    test(
+        'non-hamzated spelling ("الاحد") resolves the same, not today and '
+        'not today+7', () async {
+      expect(await startOf('اجتماع يوم الاحد القادم الساعة 10'),
+          DateTime(2026, 8, 23, 10));
+    });
+  });
+
   group('قبل (before) is a clause boundary, symmetric with بعد (after)', () {
     test('excluded from the participant clause', () async {
       expect(
