@@ -8,6 +8,7 @@ import 'package:meetmind/core/models.dart';
 import 'package:meetmind/shared/localization/app_strings.dart';
 import 'package:meetmind/shared/localization/hijri_date.dart';
 import 'package:meetmind/shared/localization/locale_provider.dart';
+import 'package:meetmind/shared/widgets/empty_state.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -101,24 +102,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget _buildBody(ThemeData theme, ColorScheme cs,
       List<CalendarEvent> results, AppStrings s, String lang) {
     if (_query.trim().isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.search, size: 64, color: cs.onSurfaceVariant),
-            const SizedBox(height: 16),
-            Text(s.searchEmptyPrompt,
-                style: TextStyle(color: cs.onSurfaceVariant)),
-          ],
-        ),
-      );
+      return EmptyState(message: s.searchEmptyPrompt);
     }
 
     if (results.isEmpty) {
-      return Center(
-        child: Text(s.noResultsFor(_query),
-            style: TextStyle(color: cs.onSurfaceVariant)),
-      );
+      return EmptyState(message: s.noResultsFor(_query));
     }
 
     return ListView.builder(

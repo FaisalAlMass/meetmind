@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:meetmind/capabilities/calendar/presentation/calendar_screen.dart';
@@ -13,6 +14,7 @@ import 'package:meetmind/shared/localization/locale_provider.dart';
 import 'package:meetmind/shared/services/notification_service.dart';
 import 'package:meetmind/shared/services/speech_service.dart';
 import 'package:meetmind/shared/services/user_service.dart';
+import 'package:meetmind/shared/widgets/empty_state.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 /// الهيكل الرئيسي — يدير التبويبات السفلية.
@@ -67,14 +69,26 @@ class TodayScreen extends ConsumerStatefulWidget {
   ConsumerState<TodayScreen> createState() => _TodayScreenState();
 }
 
-class _TodayScreenState extends ConsumerState<TodayScreen> {
+class _TodayScreenState extends ConsumerState<TodayScreen>
+    with SingleTickerProviderStateMixin {
   final _input = TextEditingController();
   final _focus = FocusNode();
   bool _listening = false;
 
+  // نبضة بصرية لأيقونة المايك وقت الاستماع — بديل عن مجرد تلوينها أحمر.
+  late final AnimationController _micPulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  );
+  late final Animation<double> _micScale =
+      Tween(begin: 1.0, end: 1.15).animate(
+    CurvedAnimation(parent: _micPulse, curve: Curves.easeInOut),
+  );
+
   @override
   void dispose() {
     if (_listening) SpeechService.instance.cancel();
+    _micPulse.dispose();
     _input.dispose();
     _focus.dispose();
     super.dispose();
@@ -98,6 +112,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
     void finish() {
       if (sessionDone) return;
       sessionDone = true;
+      _micPulse.stop();
       if (mounted) setState(() => _listening = false);
     }
 
@@ -140,6 +155,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
       return;
     }
     setState(() => _listening = true);
+    _micPulse.repeat(reverse: true);
   }
 
   String _fmtTime(DateTime d, String lang) => DateFormat.jm(lang).format(d);
@@ -196,11 +212,24 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
               padding: const EdgeInsets.only(top: 8),
               child: Text(s.notUnderstood, style: theme.textTheme.bodySmall),
             ),
-          if (capture.pending != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: _confirmationCard(theme, capture.pending!, s, lang),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            switchInCurve: Curves.easeOut,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: Tween(begin: 0.96, end: 1.0).animate(animation),
+                child: child,
+              ),
             ),
+            child: capture.pending != null
+                ? Padding(
+                    key: const ValueKey('pending'),
+                    padding: const EdgeInsets.only(top: 12),
+                    child: _confirmationCard(theme, capture.pending!, s, lang),
+                  )
+                : const SizedBox.shrink(key: ValueKey('empty')),
+          ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -218,10 +247,8 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
           agenda.when(
             data: (events) => events.isEmpty
                 ? Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(s.noEventsYet,
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: cs.onSurfaceVariant)),
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: EmptyState(message: s.noEventsYet),
                   )
                 : Column(
                     children: events
@@ -263,11 +290,16 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                 ),
               ),
             ),
-            IconButton(
-              tooltip: s.voiceInputTooltip,
-              onPressed: () => _toggleListening(s, lang),
-              icon: Icon(_listening ? Icons.mic : Icons.mic_none,
-                  color: _listening ? cs.error : cs.onSurfaceVariant),
+            ScaleTransition(
+              scale: _listening
+                  ? _micScale
+                  : const AlwaysStoppedAnimation(1.0),
+              child: IconButton(
+                tooltip: s.voiceInputTooltip,
+                onPressed: () => _toggleListening(s, lang),
+                icon: Icon(_listening ? Icons.mic : Icons.mic_none,
+                    color: _listening ? cs.error : cs.onSurfaceVariant),
+              ),
             ),
             if (capture.processing)
               const SizedBox(
@@ -349,6 +381,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
                     onPressed: () async {
                       final scheduleResult = await notifier.confirm();
                       _input.clear();
+                      HapticFeedback.lightImpact();
                       if (!mounted) return;
                       final warning = switch (scheduleResult) {
                         ReminderScheduleResult.reminderAlreadyPassed =>
