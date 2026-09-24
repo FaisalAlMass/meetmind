@@ -176,7 +176,7 @@ class NaturalLanguageEventParser implements EventParser {
   // "بعد" الموجودة) بعد ملاحظة نفس المشكلة مع "قبل صلاة الجمعة".
   static const List<String> _clauseBoundaryWords = [
     'at', 'on', 'after', 'before', 'for', 'in', 'tomorrow', 'today',
-    'tonight', 'about', 'regarding', 'concerning',
+    'tonight', 'yesterday', 'about', 'regarding', 'concerning',
     'غدا', 'بكرة', 'اليوم', 'الليلة', 'يوم', 'بعد', 'قبل', 'الساعة',
     'الساعه', 'لمدة', 'مدة', 'في', 'مع',
     'لمناقشة', 'بخصوص', 'موضوعه', 'موضوعها', 'موضوع', 'حول',
@@ -184,13 +184,14 @@ class NaturalLanguageEventParser implements EventParser {
 
   // كلمات شائعة بعد with/مع مالها علاقة بأسماء أشخاص فعلية. أضفنا "and"
   // (تسرّب أحيانًا كمشارك وهمي مع قوائم فيها فاصلة أكسفورد: "A, B, and C")
-  // وكلمات تعديل التاريخ ("this"/"next"/"القادم"/"الجاي") اللي كانت
-  // تُبتلع لو جت مباشرة قبل اسم يوم الأسبوع بلا فاصل.
+  // وكلمات تعديل التاريخ ("this"/"next"/"القادم"/"الجاي") وكلمات التكرار
+  // ("every"/"weekly") اللي كانت تُبتلع لو جت مباشرة قبل اسم يوم الأسبوع
+  // بلا فاصل، و"around" (وقت تقريبي عامي: "around 3ish").
   static const Set<String> _participantStopWords = {
     'the', 'a', 'an', 'no', 'some', 'our', 'my', 'their', 'his', 'her',
     'everyone', 'everybody', 'anyone', 'anybody', 'team', 'and', 'this',
-    'next', 'coming', 'day', 'days', 'و', 'القادم', 'القادمة', 'الجاي',
-    'الجايه',
+    'next', 'coming', 'day', 'days', 'every', 'weekly', 'daily', 'monthly',
+    'yearly', 'around', 'و', 'القادم', 'القادمة', 'الجاي', 'الجايه',
   };
 
   // ألقاب/بادئات تلتصق باسم الشخص أو الجهة — لو فصلناها بالمسافة العادية
@@ -203,7 +204,7 @@ class NaturalLanguageEventParser implements EventParser {
     'الشيخ', 'الشيخة', 'شيخ', 'شيخة',
     'الرئيس', 'الرئيسة', 'المدير', 'المديرة', 'الوزير', 'الوزيرة',
     'أبو', 'ابو', 'أم', 'ام', 'أخي', 'أختي', 'ابني', 'ابنتي',
-    'فريق', 'إدارة', 'ادارة', 'قسم', 'لجنة',
+    'فريق', 'إدارة', 'ادارة', 'قسم', 'لجنة', 'شركة',
     'dr', 'mr', 'mrs', 'ms', 'prof', 'eng',
     // نسخ بلا نقطة من اختصارات _stripTitleAbbreviationPeriods ("أ."،
     // "د."، "م.") — تنحذف نقطتها قبل الوصول هنا، فلازم تُعرف بشكلها المجرد.
@@ -251,8 +252,11 @@ class NaturalLanguageEventParser implements EventParser {
   // اختصارات ألقاب بنقطة (Dr.، Mr.، أ.، د.، م.) — النقطة نفسها توقف
   // استخراج المشاركين عندها (بما إنها نفس علامة نهاية الجملة)، فتقطع
   // الاسم بعدها. نشيل النقطة الملتصقة بالاختصار قبل أي استخراج.
+  // "و" ملحقة بالحرف المختصر ("ود." = "و" + "د.") من نفس صيغة "والمهندس"
+  // المدعومة بمكان ثاني — نسمح بها هنا كمان (بجانب بداية النص/مسافة)،
+  // وإلا نقطة "ود." الملتصقة توقف استخراج المشاركين قبل الاسم اللي بعدها.
   static final RegExp _titleAbbreviationPeriod = RegExp(
-    r'\b(Dr|Mr|Mrs|Ms|Prof|Eng)\.|(^|\s)(أ|د|م)\.',
+    r'\b(Dr|Mr|Mrs|Ms|Prof|Eng)\.|(^|\s|و)(أ|د|م)\.',
     caseSensitive: false,
   );
 
@@ -343,27 +347,39 @@ class NaturalLanguageEventParser implements EventParser {
     // ثانية؛ الفاصل الحقيقي هو كلمة حدّية أو نهاية الجملة (نقطة/علامة سؤال)
     // أو بداية مكان بصيغة "بـ" الملتصقة بالتعريف ("بالخبر") — نفس الصيغة
     // اللي يتعرف عليها _location.
-    final match = RegExp(
+    final matches = RegExp(
       '(?:with|مع)\\s+(.+?)(?=\\s+بال[^\\s.,،؟!]+|\\s+(?:$boundary)(?:\\s|\$|[.,،؟!])|[.؟!]|\$)',
       caseSensitive: false,
-    ).firstMatch(raw);
-    if (match == null) return const [];
-    final clause = match.group(1)!.trim();
-    if (clause.isEmpty) return const [];
+    ).allMatches(raw);
 
+    // جملة ممكن فيها أكثر من عبارة "مع" (زي "اجتماع مع سارة مع فريق
+    // التسويق") — كل واحدة تحتوي أشخاص مختلفين، فنجمعهم كلهم بدل الاكتفاء
+    // بأول عبارة بس.
+    final people = <String>[];
+    for (final match in matches) {
+      final clause = match.group(1)!.trim();
+      if (clause.isEmpty) continue;
+      people.addAll(_peopleFromClause(clause));
+    }
+    return people;
+  }
+
+  /// يحوّل عبارة مشاركين وحدة (بعد "مع"/"with") لقائمة أسماء — يلحق لقب
+  /// زي "الأستاذ"/"فريق" بالكلمة (الكلمات) اللي بعده كاسم واحد، بدل ما
+  /// ينفصلون كـ"مشاركين" وهميين. نفحص اللقب على الكلمة بعد تجريدها من "و"
+  /// حتى لو كانت ملتصقة فيها ("والمهندس سعد")، ونوقف الإلحاق عند أول كلمة
+  /// معلّمة بـ"و" بالأول (شخص جديد) أو نهاية القائمة.
+  List<String> _peopleFromClause(String clause) {
     final tokens =
         clause.split(RegExp(r'\s*,\s*|\s*،\s*|\s+and\s+|\s+', caseSensitive: false));
 
-    // نمرّ على الكلمات يدويًا (بدل .map/.where بسيطة) عشان نقدر نلحق لقب
-    // زي "الأستاذ"/"فريق" بالكلمة (الكلمات) اللي بعده كاسم واحد، بدل ما
-    // ينفصلون كـ"مشاركين" وهميين. نفحص اللقب على الكلمة بعد تجريدها من "و"
-    // حتى لو كانت ملتصقة فيها ("والمهندس سعد")، ونوقف الإلحاق عند أول كلمة
-    // معلّمة بـ"و" بالأول (شخص جديد) أو نهاية القائمة.
     final people = <String>[];
     var i = 0;
     while (i < tokens.length) {
       final token = _stripArabicConjunction(tokens[i]).trim();
-      if (token.isEmpty || _participantStopWords.contains(token.toLowerCase())) {
+      if (token.isEmpty ||
+          _participantStopWords.contains(token.toLowerCase()) ||
+          _looksLikeBareTime(token)) {
         i++;
         continue;
       }
@@ -378,7 +394,9 @@ class NaturalLanguageEventParser implements EventParser {
             !(tokens[j].length > 1 && tokens[j].startsWith('و')) &&
             !_isTitlePrefix(tokens[j])) {
           final next = tokens[j].trim();
-          if (next.isNotEmpty && !_participantStopWords.contains(next.toLowerCase())) {
+          if (next.isNotEmpty &&
+              !_participantStopWords.contains(next.toLowerCase()) &&
+              !_looksLikeBareTime(next)) {
             parts.add(next);
           }
           j++;
@@ -392,6 +410,14 @@ class NaturalLanguageEventParser implements EventParser {
     }
     return people;
   }
+
+  // كلمة وقت بلا مؤشر ("الساعة"/"at") قبلها مباشرة ما تُقرأ كوقت أصلًا
+  // (_clock يتطلب المؤشر)، فتبقى عالقة بعبارة المشاركين كنص عادي —
+  // "3pm"، "3ish"، "٥:٣٠" ونحوها مالها علاقة باسم شخص.
+  static final RegExp _bareTimePattern =
+      RegExp(r'^\d{1,2}(:\d{2})?(am|pm|ish)?$', caseSensitive: false);
+
+  bool _looksLikeBareTime(String token) => _bareTimePattern.hasMatch(token);
 
   String _stripArabicConjunction(String word) {
     // "وعمر" = "و" (and) ملتصقة بالاسم "عمر" — نفصلها.
@@ -475,6 +501,7 @@ class NaturalLanguageEventParser implements EventParser {
   List<int>? _namedTime(String low) {
     if (RegExp(r'\bnoon\b').hasMatch(low)) return [12, 0];
     if (RegExp(r'\bmidnight\b').hasMatch(low)) return [0, 0];
+    if (RegExp(r'نصف الليل|منتصف الليل').hasMatch(low)) return [0, 0];
     return null;
   }
 
@@ -482,6 +509,10 @@ class NaturalLanguageEventParser implements EventParser {
   // بدل الأرقام). مرتّبة الأطول أولًا حتى "الثانية عشرة" (12) ما تنقرأ
   // غلط كـ"الثانية" (2).
   static const Map<String, int> _arabicHourWords = {
+    // آمنة رغم تشابهها مع شهر "صفر" الهجري — هذا الجدول ما يُستشار إلا
+    // بعد مطابقة "الساعة/الساعه" مباشرة قبل الكلمة، وصيغة التاريخ الهجري
+    // ("5 صفر") مختلفة بنيويًا (رقم يوم قبلها، مو "الساعة").
+    'صفر': 0,
     'الحادية عشرة': 11, 'حادية عشرة': 11, 'إحدى عشرة': 11, 'احدى عشرة': 11,
     'الثانية عشرة': 12, 'ثانية عشرة': 12, 'اثنتا عشرة': 12, 'اثنا عشر': 12,
     'الواحدة': 1, 'واحدة': 1,

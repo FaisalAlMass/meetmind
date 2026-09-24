@@ -336,4 +336,87 @@ void main() {
           DateTime(2026, 8, 22, 15));
     });
   });
+
+  group('multiple مع/with clauses in one sentence', () {
+    test('participants from every clause are collected, not just the first',
+        () async {
+      expect(
+          await participantsOf(
+              'اجتماع مع سارة مع فريق التسويق الساعة 10'),
+          ['سارة', 'فريق التسويق']);
+    });
+  });
+
+  group('"yesterday" is a boundary, not a participant', () {
+    test('doesn\'t leak into the name', () async {
+      expect(await participantsOf('Meeting with Ahmed yesterday at 3pm'),
+          ['Ahmed']);
+    });
+  });
+
+  group('recurring-frequency words don\'t leak into participants', () {
+    test('"every" before a weekday is filtered out', () async {
+      expect(
+          await participantsOf(
+              'Weekly sync with the design team every Monday at 10am'),
+          ['design']);
+    });
+  });
+
+  group('casual "around" filler is filtered like other stopwords', () {
+    test('doesn\'t leak into participants', () async {
+      final people =
+          await participantsOf('call with Tariq around 3pm tomorrow');
+      expect(people, ['Tariq']);
+    });
+  });
+
+  group('شركة (company) merges with the name like فريق/إدارة', () {
+    test('"شركة الاتصالات" stays one participant', () async {
+      expect(
+          await participantsOf('لقاء عمل مع شركة الاتصالات الساعة 2'),
+          ['شركة الاتصالات']);
+    });
+  });
+
+  group('"و" + single-letter abbreviation + period ("ود.")', () {
+    test('both titled people are captured, not just the first', () async {
+      expect(
+          await participantsOf('اجتماع مع د. فيصل ود. سارة الساعة 3'),
+          ['د فيصل', 'د سارة']);
+    });
+  });
+
+  group('Arabic named times (نصف الليل) and spelled-out صفر', () {
+    test('نصف الليل means 00:00', () async {
+      expect(await startOf('نصف الليل موعد مع سلطان'),
+          DateTime(2026, 8, 20, 0, 0));
+    });
+
+    test('منتصف الليل means 00:00', () async {
+      expect(await startOf('منتصف الليل اجتماع مع فهد'),
+          DateTime(2026, 8, 20, 0, 0));
+    });
+
+    test('الساعة صفر means 00:00', () async {
+      expect(await startOf('الساعة صفر مع منصور'), DateTime(2026, 8, 20, 0));
+    });
+  });
+
+  group('robustness: no false positives from unrelated numbers', () {
+    test('a phone number is not misread as a time', () async {
+      expect(await timeIsConfident('اتصل فيني على 0501234567 غدا'), isFalse);
+    });
+
+    test('an invalid hour (25) is rejected, not misparsed', () async {
+      final draft =
+          await parser.parse('اجتماع مع خالد الساعة 25', now: now);
+      expect(draft!.lowConfidence.contains(EventField.time), isTrue);
+      expect(draft.participants, ['خالد']);
+    });
+
+    test('a bare year mention (2027) is not misread as a time', () async {
+      expect(await timeIsConfident('اجتماع سنة 2027 مع الفريق'), isFalse);
+    });
+  });
 }
