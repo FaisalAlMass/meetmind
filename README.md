@@ -101,6 +101,8 @@ icon and every in-app string.
 - [table_calendar](https://pub.dev/packages/table_calendar) for the month
   view
 - [intl](https://pub.dev/packages/intl) for date/number localization
+- [package_info_plus](https://pub.dev/packages/package_info_plus) to
+  read the running app's real version for display in Profile
 
 ## Getting started
 

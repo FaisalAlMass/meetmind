@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meetmind/capabilities/calendar/presentation/notification_settings_screen.dart';
 import 'package:meetmind/shared/localization/app_strings.dart';
+import 'package:meetmind/shared/services/app_info_provider.dart';
 import 'package:meetmind/shared/localization/locale_provider.dart';
 import 'package:meetmind/shared/services/cloud_auth_service.dart';
 import 'package:meetmind/shared/services/notification_settings.dart';
@@ -26,6 +27,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final locale = ref.watch(localeProvider);
     final userName = ref.watch(userNameProvider) ?? s.defaultUserName;
     final notifSettings = ref.watch(notificationSettingsProvider);
+    final packageInfo = ref.watch(packageInfoProvider);
     final initial = userName.isNotEmpty ? userName.characters.first : s.defaultInitial;
     final languageName = locale.languageCode == 'ar' ? s.arabicName : s.englishName;
 
@@ -138,8 +140,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ListTile(
                   leading: const Icon(Icons.tag),
                   title: Text(s.versionLabel),
-                  subtitle: Text('1.0.0',
-                      style: TextStyle(color: cs.onSurfaceVariant)),
+                  subtitle: Text(
+                    packageInfo.maybeWhen(
+                        data: (info) => info.version, orElse: () => '—'),
+                    style: TextStyle(color: cs.onSurfaceVariant),
+                  ),
                 ),
               ],
             ),
