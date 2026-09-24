@@ -41,13 +41,20 @@ icon and every in-app string.
 - **Multi-participant and titled-name extraction** — "مع منى، فهد، وريم"
   captures all three, not just the first; titles/kunyas stick to the name
   they belong to in both languages ("الدكتورة منى", "أبو سلطان", "Dr.
-  Ahmed", "Mrs. Sara") instead of splitting into phantom extra
-  participants — including two titled people joined by "and" with no
-  Arabic "و" cue. Locations are recognized via both "في الرياض" and the
-  attached "بـ" prefix ("بالخبر", but not common non-location adverbs
-  like "بالضبط"), and topic phrases ("لمناقشة…", "بخصوص…", "about…",
-  "regarding…") are excluded from both fields instead of being swallowed
-  into them.
+  Ahmed", "Mrs. Sara", "شركة الاتصالات") instead of splitting into
+  phantom extra participants — including two titled people joined by
+  "and" with no Arabic "و" cue, and multiple separate "مع"/"with" clauses
+  in the same sentence ("اجتماع مع سارة مع فريق التسويق" captures both).
+  Filler words ("this"/"next"/"القادم" before a weekday, "yesterday",
+  "every"/recurring words, bare time-like tokens with no marker word)
+  are filtered instead of showing up as fake participants. Locations are
+  recognized via both "في الرياض" and the attached "بـ" prefix
+  ("بالخبر", but not common non-location adverbs like "بالضبط"), and
+  topic phrases ("لمناقشة…", "بخصوص…", "about…", "regarding…") are
+  excluded from both fields instead of being swallowed into them.
+  "نصف الليل"/"منتصف الليل"/"midnight"/"noon" are understood as exact
+  times, and malformed input (invalid hours, phone numbers, bare year
+  numbers) is safely ignored rather than misread.
 - **Local notifications** — reminders with a configurable lead time (5,
   10, 15, 30, or 60 minutes before), a custom notification tone, and
   delivery whether the app is open in the foreground or fully closed in
@@ -140,17 +147,18 @@ flutter test
 
 `test/parser_test.dart` is a regression suite for the natural-language
 parser: digit normalization, spelled-out Arabic hour words, period
-words, prayer-name-vs-explicit-time priority, comma-separated
-multi-participant lists, titled/kunya name extraction in both languages
-(including abbreviated English titles like "Dr."), "بـ"-prefixed
-locations, Arabic and English topic-phrase exclusion, date-modifier
-words ("this"/"next"/"القادم") not leaking into names, "day after
-tomorrow"/"بعد بكرة", English named times ("noon"/"midnight"), and
-English duration phrasing — run it after touching
-`NaturalLanguageEventParser`. It was built up by running large batches
-(60+ sentences so far, in three rounds) of varied real-world phrasings
-through the parser and fixing whatever broke; the same approach is the
-fastest way to catch the next gap.
+words, prayer-name-vs-explicit-time priority, comma-separated and
+multi-clause participant lists, titled/kunya name extraction in both
+languages (including abbreviated English titles like "Dr." and doubled
+Arabic abbreviations like "ود."), "بـ"-prefixed locations, Arabic and
+English topic-phrase exclusion, filler/date-modifier words not leaking
+into names, "day after tomorrow"/"بعد بكرة", named times ("noon"/
+"midnight"/"نصف الليل"), robustness against malformed input (phone
+numbers, invalid hours, bare years), and English duration phrasing —
+run it after touching `NaturalLanguageEventParser`. It was built up by
+running large batches (110+ sentences so far, in four rounds) of varied
+real-world phrasings through the parser and fixing whatever broke; the
+same approach is the fastest way to catch the next gap.
 
 ## Project structure
 
