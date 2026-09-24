@@ -46,6 +46,13 @@ class FirestoreEventRepository implements EventRepository {
     await _events.doc(id).delete();
   }
 
+  @override
+  Stream<List<CalendarEvent>> watchAll() {
+    return _events.snapshots().map((snap) =>
+        snap.docs.map(_fromDoc).toList()
+          ..sort((a, b) => a.start.compareTo(b.start)));
+  }
+
   Map<String, dynamic> _toMap(CalendarEvent e) => {
         'title': e.title,
         'start': e.start,

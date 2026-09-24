@@ -20,19 +20,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('ar', null);
-  await initializeDateFormatting('en', null);
 
-  // تجهيز Firebase + تسجيل دخول مجهول تلقائي (يحمي المواعيد من الضياع لو
-  // انحذف التطبيق أو انثبّت من جديد بنفس الجهاز).
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await CloudAuthService.instance.ensureSignedIn();
+  // تجهيز التخزين المحلي (يبقى بعد إغلاق التطبيق) — يبدأ بالتوازي مع
+  // الباقي، ونستنى نتيجته بس وقت الحاجة له تحت.
+  final prefsFuture = SharedPreferences.getInstance();
 
-  // تجهيز خدمة الإشعارات وطلب الإذن عند التشغيل.
-  await NotificationService.instance.init();
+  // كل هذي الخطوات مستقلة عن بعض إلا سلسلة Firebase→تسجيل الدخول المجهول
+  // (يحمي المواعيد من الضياع لو انحذف التطبيق أو انثبّت من جديد بنفس
+  // الجهاز) اللي لازم تصير بالترتيب — نشغّل الكل بالتوازي عشان نقلل وقت
+  // الإقلاع.
+  await Future.wait([
+    initializeDateFormatting('ar', null),
+    initializeDateFormatting('en', null),
+    NotificationService.instance.init(),
+    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
+        .then((_) => CloudAuthService.instance.ensureSignedIn()),
+  ]);
 
-  // تجهيز التخزين المحلي (يبقى بعد إغلاق التطبيق).
-  final prefs = await SharedPreferences.getInstance();
+  final prefs = await prefsFuture;
 
   // Capability modules register with the core here. Adding a future assistant
   // (Meeting, Email, Travel…) is one more `..register(...)` line — no redesign.

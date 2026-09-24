@@ -53,17 +53,17 @@ final captureUseCaseProvider = Provider<CaptureEventUseCase>(
 // --- Agenda state ---
 
 final agendaProvider =
-    AsyncNotifierProvider<AgendaNotifier, List<CalendarEvent>>(
+    StreamNotifierProvider<AgendaNotifier, List<CalendarEvent>>(
   AgendaNotifier.new,
 );
 
-class AgendaNotifier extends AsyncNotifier<List<CalendarEvent>> {
+class AgendaNotifier extends StreamNotifier<List<CalendarEvent>> {
   static const _migratedKey = 'meetmind_cloud_migrated';
 
   @override
-  Future<List<CalendarEvent>> build() async {
+  Stream<List<CalendarEvent>> build() async* {
     await _migrateLegacyEventsIfNeeded();
-    return ref.read(eventRepositoryProvider).all();
+    yield* ref.read(eventRepositoryProvider).watchAll();
   }
 
   /// ينقل مواعيد كانت محفوظة محليًا (قبل تفعيل المزامنة السحابية) لمرة
@@ -105,7 +105,6 @@ class AgendaNotifier extends AsyncNotifier<List<CalendarEvent>> {
       );
     }
 
-    state = AsyncData(await repository.all());
     return result;
   }
 
@@ -131,7 +130,6 @@ class AgendaNotifier extends AsyncNotifier<List<CalendarEvent>> {
       );
     }
 
-    state = AsyncData(await repository.all());
     return result;
   }
 
@@ -140,8 +138,6 @@ class AgendaNotifier extends AsyncNotifier<List<CalendarEvent>> {
     await repository.remove(id);
 
     await NotificationService.instance.cancel(id.hashCode);
-
-    state = AsyncData(await repository.all());
   }
 
   int get conflictCount {

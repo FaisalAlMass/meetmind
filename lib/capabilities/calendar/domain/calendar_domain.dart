@@ -9,6 +9,10 @@ abstract class EventRepository {
   Future<List<CalendarEvent>> eventsFor(DateTime day);
   Future<void> add(CalendarEvent event);
   Future<void> remove(String id);
+
+  /// Live view of the full event list — pushes an update whenever the
+  /// underlying store changes, instead of requiring a manual re-fetch.
+  Stream<List<CalendarEvent>> watchAll();
 }
 
 /// Pure, dependency-free overlap logic. Treats back-to-back events (shared

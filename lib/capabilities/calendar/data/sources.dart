@@ -60,6 +60,12 @@ class LocalEventRepository implements EventRepository {
     await _write(events);
   }
 
+  /// shared_preferences ما عنده إشعارات تغيير حية — هذا المستودع يُستخدم
+  /// فقط لنقل المواعيد لمرة وحدة (migration)، مو للعرض المباشر، فبث لمرة
+  /// وحدة كافي.
+  @override
+  Stream<List<CalendarEvent>> watchAll() => Stream.fromFuture(all());
+
   Map<String, dynamic> _toMap(CalendarEvent e) => {
         'id': e.id,
         'title': e.title,
