@@ -80,6 +80,13 @@ icon and every in-app string.
   organization's approved brand palette (primary green, gold and
   emerald accents) with hand-verified WCAG-AA contrast on every color
   pairing.
+- **iOS home screen widget** — small/medium/large sizes showing the
+  "موعد" mark plus up to 2/3/6 upcoming events, kept in sync with the
+  live Firestore agenda via an App Group shared container. WidgetKit
+  can't host a live text field, so the whole tile is a tap-to-open
+  shortcut: tapping it opens the app straight into the capture screen
+  with the keyboard already focused, instead of trying to type inside
+  the widget itself.
 
 ## Tech stack
 
@@ -103,6 +110,8 @@ icon and every in-app string.
 - [intl](https://pub.dev/packages/intl) for date/number localization
 - [package_info_plus](https://pub.dev/packages/package_info_plus) to
   read the running app's real version for display in Profile
+- [home_widget](https://pub.dev/packages/home_widget) to sync the
+  agenda into the iOS home screen widget's shared App Group container
 
 ## Getting started
 
@@ -145,7 +154,18 @@ configuration specifically so that pressing Run in Xcode (e.g. while
 troubleshooting a signing/trust prompt) can't silently reinstall a
 Debug build — Debug builds refuse to launch at all unless Xcode's
 tooling is attached, which looks like the app crashing to a white
-screen when tapped from the home screen.
+screen when tapped from the home screen. The `MawidWidget` extension
+shares Runner's signing identity, so it goes stale at the same 7-day
+boundary — no separate expiry to track, reinstalling the app refreshes
+both.
+
+The App Groups capability (`group.com.faisalalmass.mawid`, required
+for the widget to read the app's data) was confirmed working on a free
+Apple ID / Personal Team before the widget was built — verified via
+`codesign -d --entitlements :- <built .app>` showing the entitlement
+actually present in the signed binary, not just a successful build
+(Xcode's automatic signing can silently drop an unsupported capability
+otherwise).
 
 ### Testing
 
@@ -204,6 +224,7 @@ lib/
 └── shared/
     ├── localization/                  # AppStrings (ar/en), locale, Hijri dates
     ├── services/                      # Notifications, speech, auth, user prefs
+    │   ├── app_info_provider.dart         # Real app version, for Profile
     │   ├── cloud_auth_service.dart        # Anonymous auth + optional email link
     │   ├── notification_service.dart
     │   ├── notification_settings.dart
@@ -216,6 +237,11 @@ lib/
 
 test/
 └── parser_test.dart                   # Regression suite for the NL date/time parser
+
+ios/
+└── MawidWidget/                       # WidgetKit extension (native Swift, no Flutter)
+    ├── MawidWidgetBundle.swift            # @main entry point
+    └── MawidWidget.swift                  # TimelineProvider + small/medium/large layouts
 ```
 
 The app is built around a pluggable **capability** model — `Calendar` is
@@ -256,6 +282,10 @@ with the same `CapabilityRegistry` without touching existing code.
   reinstall on the *same* device (its credential lives in the OS
   keychain). Recovering events on a new or wiped device requires having
   linked an email first, from Profile.
+- The iOS widget can't host a text field (a WidgetKit/OS restriction,
+  not something this app can add) — the whole tile is a tap-to-open
+  shortcut into the app's capture screen instead of accepting text
+  directly.
 
 ## Versioning
 
@@ -277,6 +307,7 @@ git checkout vX.Y.Z
 | `1.1.0` | Motion/brand-identity UI pass; live Firestore sync + parallel app startup; weekday-parsing fix and required-time prompt for the capture flow. |
 | `1.2.0` | Home tab (formerly "Today") now shows "Upcoming events" filtered from today's date onward instead of the full event history. |
 | `1.2.1` | Profile's version number now reads the real build version (`package_info_plus`) instead of a hardcoded `'1.0.0'` string. |
+| `1.3.0` | iOS home screen widget (small/medium/large) showing upcoming events, tap-to-open into the capture screen. |
 
 ## Author
 
