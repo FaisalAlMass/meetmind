@@ -21,7 +21,9 @@ icon and every in-app string.
   happens live and follows the app's current language.
 - **Confirm-before-save** — every captured event goes through a review
   card before it's written to the calendar; low-confidence fields (date,
-  time, title) are flagged instead of silently guessed.
+  time, title) are flagged instead of silently guessed. If no time was
+  stated at all, the app doesn't invent one — Save stays disabled until
+  you explicitly pick a time in the same review card.
 - **Conflict detection** — new events are checked against your existing
   schedule, with alternative time slots suggested on overlap.
 - **Bilingual UI (Arabic/English)** — a single toggle switches the entire
@@ -64,12 +66,16 @@ icon and every in-app string.
 - **Cloud-synced events (Firebase)** — events are stored in Cloud
   Firestore under an automatic, invisible anonymous account, so they
   survive deleting and reinstalling the app on the same device (not just
-  a local cache). From Profile, a user can optionally link an email +
-  password to that account to make events recoverable from *any* device,
-  not just the one they were created on.
+  a local cache). The agenda listens to Firestore live (not a one-shot
+  fetch), so an add/edit/delete updates the UI from the write itself
+  instead of a separate re-fetch afterward. From Profile, a user can
+  optionally link an email + password to that account to make events
+  recoverable from *any* device, not just the one they were created on.
 - **Four-tab home** — Today (agenda + quick capture), Calendar (month
-  grid), Search, and Profile (name, language, theme, notifications, cloud
-  backup), all backed by the same cloud-synced store.
+  grid + its own natural-language quick-add, sharing the same capture
+  pipeline and review card as Today), Search, and Profile (name,
+  language, theme, notifications, cloud backup), all backed by the same
+  cloud-synced store.
 - **Dark mode** and a **Material 3** interface, themed from the
   organization's approved brand palette (primary green, gold and
   emerald accents) with hand-verified WCAG-AA contrast on every color
@@ -153,12 +159,14 @@ languages (including abbreviated English titles like "Dr." and doubled
 Arabic abbreviations like "ود."), "بـ"-prefixed locations, Arabic and
 English topic-phrase exclusion, filler/date-modifier words not leaking
 into names, "day after tomorrow"/"بعد بكرة", named times ("noon"/
-"midnight"/"نصف الليل"), robustness against malformed input (phone
-numbers, invalid hours, bare years), and English duration phrasing —
-run it after touching `NaturalLanguageEventParser`. It was built up by
-running large batches (110+ sentences so far, in four rounds) of varied
-real-world phrasings through the parser and fixing whatever broke; the
-same approach is the fastest way to catch the next gap.
+"midnight"/"نصف الليل"), weekday names resolving to the correct next
+occurrence regardless of hamza spelling ("الاحد" same as "الأحد"),
+robustness against malformed input (phone numbers, invalid hours, bare
+years), and English duration phrasing — run it after touching
+`NaturalLanguageEventParser` or `DateReferenceParser`. It was built up
+by running large batches (110+ sentences so far, in four rounds) of
+varied real-world phrasings through the parser and fixing whatever
+broke; the same approach is the fastest way to catch the next gap.
 
 ## Project structure
 
@@ -182,13 +190,15 @@ lib/
 │       └── presentation/              # Screens & Riverpod providers
 │           ├── welcome_screen.dart        # First-launch name capture
 │           ├── today_screen.dart          # HomeShell (bottom nav) + agenda
-│           ├── calendar_screen.dart       # Month grid
+│           ├── calendar_screen.dart       # Month grid + NL quick-add
 │           ├── search_screen.dart
 │           ├── profile_screen.dart        # Includes the cloud-backup card
 │           ├── notification_settings_screen.dart
 │           ├── event_detail_screen.dart
 │           ├── edit_event_screen.dart
-│           └── providers.dart
+│           ├── providers.dart
+│           └── widgets/
+│               └── capture_confirmation_card.dart  # Shared capture review card
 └── shared/
     ├── localization/                  # AppStrings (ar/en), locale, Hijri dates
     ├── services/                      # Notifications, speech, auth, user prefs
