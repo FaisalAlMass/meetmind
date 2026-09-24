@@ -255,6 +255,25 @@ with the same `CapabilityRegistry` without touching existing code.
   keychain). Recovering events on a new or wiped device requires having
   linked an email first, from Profile.
 
+## Versioning
+
+`pubspec.yaml`'s `version:` field (`X.Y.Z+build`) follows semantic
+versioning: **patch** (`X.Y.Z+1`) for bug fixes, **minor** (`X.Y+1.0`)
+for new or changed features, **major** (`X+1.0.0`) for a breaking or
+ground-up change. The build number after `+` increments on every bump
+regardless of tier (it's what App Store/Play Store track internally).
+
+Each version bump is tagged in git (`vX.Y.Z`), so reverting to a known
+version is one command:
+```bash
+git checkout vX.Y.Z
+```
+
+| Version | Notes |
+| --- | --- |
+| `1.0.0` | First tagged baseline. |
+| `1.1.0` | Motion/brand-identity UI pass; live Firestore sync + parallel app startup; weekday-parsing fix and required-time prompt for the capture flow. |
+
 ## Author
 
 By M.Eng Faisal AlMass
