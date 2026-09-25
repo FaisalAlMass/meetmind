@@ -309,6 +309,12 @@ git checkout vX.Y.Z
 | `1.2.1` | Profile's version number now reads the real build version (`package_info_plus`) instead of a hardcoded `'1.0.0'` string. |
 | `1.3.0` | iOS home screen widget (small/medium/large) showing upcoming events, tap-to-open into the capture screen. |
 
+## License
+
+All rights reserved — see [LICENSE](LICENSE). This repository is
+public for portfolio/demonstration purposes only; it isn't licensed
+for reuse.
+
 ## Author
 
 By M.Eng Faisal AlMass
